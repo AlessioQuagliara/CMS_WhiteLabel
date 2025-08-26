@@ -1,0 +1,31 @@
+<div class="container py-4">
+  <h1 class="h3 mb-4 fw-bold"><i class="fas fa-calendar-alt text-success me-2"></i>I tuoi Eventi</h1>
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Nome Evento</th>
+            <th>Data</th>
+            <th>Stato</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (events && events.length) { %>
+            <% events.forEach(function(event) { %>
+              <tr>
+                <td><%= event.name %></td>
+                <td><%= event.date %></td>
+                <td><span class="badge bg-<%= event.status === 'attivo' ? 'success' : 'secondary' %>"><%= event.status %></span></td>
+                <td><a href="/user/events/<%= event.id %>" class="btn btn-sm btn-outline-primary">Dettagli</a></td>
+              </tr>
+            <% }) %>
+          <% } else { %>
+            <tr><td colspan="4" class="text-muted text-center">Nessun evento trovato</td></tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

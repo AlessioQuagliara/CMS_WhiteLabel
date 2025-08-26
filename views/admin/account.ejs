@@ -1,0 +1,109 @@
+<div class="container py-4">
+  <h1 class="h4 fw-bold mb-3"><i class="fas fa-user-cog text-primary me-2"></i>Account Admin</h1>
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <form id="admin-account-form" class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Email</label>
+          <input name="email" type="email" required class="form-control" value="<%= user && user.email ? user.email : '' %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Nome completo</label>
+          <input name="name" class="form-control" value="<%= user && user.name ? user.name : '' %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Nome</label>
+          <input name="first_name" class="form-control" value="<%= user && user.first_name ? user.first_name : '' %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Cognome</label>
+          <input name="last_name" class="form-control" value="<%= user && user.last_name ? user.last_name : '' %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Nuova password <small class="text-muted">(lascia vuoto per mantenere)</small></label>
+          <input name="password" type="password" class="form-control" placeholder="Nuova password">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Password corrente <small class="text-muted">(necessaria per cambiare password)</small></label>
+          <input name="current_password" type="password" class="form-control" placeholder="Password corrente">
+        </div>
+        <div class="col-12 text-end">
+          <button class="btn btn-primary" id="save-admin">Salva</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('admin-account-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const form = e.target;
+  const data = {
+    email: form.email.value.trim(),
+    name: form.name.value.trim(),
+    first_name: form.first_name.value.trim(),
+    last_name: form.last_name.value.trim(),
+  };
+    const password = form.password.value;
+    const currentPassword = form.current_password.value;
+    if (password) {
+      if (!currentPassword) {
+        if (window.Swal) return Swal.fire({ icon: 'warning', title: 'Attenzione', text: 'Inserisci la password corrente per poter cambiare la password' });
+        return alert('Inserisci la password corrente per poter cambiare la password');
+      }
+      data.password = password;
+      data.current_password = currentPassword;
+    }
+
+  try {
+    const res = await fetch('/admin/account', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    let json = {};
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      json = await res.json();
+    } else {
+      // fallback: read text to show to user
+      const text = await res.text();
+      throw new Error(text || 'Errore aggiornamento');
+    }
+    if (!res.ok) throw new Error(json && json.message ? json.message : 'Errore aggiornamento');
+    if (window.Swal) Swal.fire({ icon: 'success', title: 'Fatto', text: json.message || 'Account aggiornato' });
+    else alert(json.message || 'Account aggiornato');
+  } catch (err) {
+    if (window.Swal) Swal.fire({ icon: 'error', title: 'Errore', text: err.message });
+    else alert(err.message);
+  }
+});
+</script>
+
+<!-- SweetAlert2 loader and server flash -->
+<div id="admin-account-flash" style="display:none" data-error="<%= encodeURIComponent(typeof error !== 'undefined' && error ? error : '') %>" data-success="<%= encodeURIComponent(typeof success !== 'undefined' && success ? success : '') %>"></div>
+<script>
+  (function(){
+    try {
+      // load Swal if missing
+      if (typeof Swal === 'undefined') {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js';
+        s.async = true;
+        document.head.appendChild(s);
+      }
+      const el = document.getElementById('admin-account-flash');
+      if (!el) return;
+      const err = el.dataset.error ? decodeURIComponent(el.dataset.error) : null;
+      const ok = el.dataset.success ? decodeURIComponent(el.dataset.success) : null;
+      if (!err && !ok) return;
+      function show() {
+        if (!window.Swal) return setTimeout(show, 200);
+        if (err) return Swal.fire({ icon: 'error', title: 'Errore', text: err });
+        if (ok) return Swal.fire({ icon: 'success', title: 'Fatto', text: ok });
+      }
+      show();
+    } catch (e) { console.warn('admin account flash error', e); }
+  })();
+</script>

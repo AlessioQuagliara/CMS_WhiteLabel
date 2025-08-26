@@ -1,0 +1,80 @@
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Eventi</h1>
+    <a href="/admin/events/new" class="btn btn-primary">Crea Nuovo Evento</a>
+  </div>
+
+  <% if (events && events.length) { %>
+    <div class="list-group">
+      <% events.forEach(function(ev) { %>
+        <div class="list-group-item d-flex justify-content-between align-items-start">
+          <div>
+            <h5 class="mb-1"><%= ev.title %></h5>
+            <p class="mb-1 text-muted"><%= ev.location || 'Luogo non specificato' %> • <small><%= ev.event_date ? new Date(ev.event_date).toLocaleString() : '' %></small></p>
+            <% if (ev.description) { %>
+              <p class="mb-1"><%= ev.description.length > 200 ? ev.description.substring(0,200) + '…' : ev.description %></p>
+            <% } %>
+          </div>
+          <div class="text-end">
+            <a href="/admin/events/<%= ev.id %>" class="btn btn-sm btn-outline-secondary">Modifica</a>
+            <button class="btn btn-sm btn-danger btn-delete-event" data-id="<%= ev.id %>">Elimina</button>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+
+    <% if (pagination && pagination.pages > 1) { %>
+      <nav class="mt-3">
+        <ul class="pagination">
+          <% for (let p = 1; p <= pagination.pages; p++) { %>
+            <li class="page-item <%= p === pagination.page ? 'active' : '' %>"><a class="page-link" href="/admin/events?page=<%= p %>"><%= p %></a></li>
+          <% } %>
+        </ul>
+      </nav>
+    <% } %>
+
+  <% } else { %>
+    <div class="alert alert-info">Nessun evento trovato.</div>
+  <% } %>
+
+</div>
+
+<div id="admin-events-flash" style="display:none" data-success="<%= encodeURIComponent(typeof flash !== 'undefined' && flash.success ? flash.success : '') %>" data-error="<%= encodeURIComponent(typeof flash !== 'undefined' && flash.error ? flash.error : '') %>"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+  // Show flash messages if present (read from hidden element)
+  (function() {
+    const el = document.getElementById('admin-events-flash');
+    if (!el) return;
+    const ok = el.dataset.success ? decodeURIComponent(el.dataset.success) : null;
+    const err = el.dataset.error ? decodeURIComponent(el.dataset.error) : null;
+    if (err) return window.Swal && Swal.fire({ icon: 'error', title: 'Errore', text: err });
+    if (ok) return window.Swal && Swal.fire({ icon: 'success', title: 'Fatto', text: ok });
+  })();
+
+  // Delete event via fetch DELETE
+  document.querySelectorAll('.btn-delete-event').forEach(btn => {
+    btn.addEventListener('click', async function (e) {
+      const id = this.dataset.id;
+      const ok = await Swal.fire({
+        title: 'Confermi eliminazione?',
+        text: 'Questa operazione è irreversibile',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Elimina',
+        cancelButtonText: 'Annulla'
+      });
+      if (!ok.isConfirmed) return;
+      try {
+        const res = await fetch(`/admin/events/${id}`, { method: 'DELETE', headers: { 'Accept': 'application/json' } });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Errore');
+        Swal.fire({ icon: 'success', title: 'Eliminato', text: json.message || 'Evento eliminato' }).then(() => window.location.reload());
+      } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Errore', text: err.message || 'Errore eliminazione' });
+      }
+    });
+  });
+</script>

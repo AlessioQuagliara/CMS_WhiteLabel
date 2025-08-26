@@ -1,0 +1,59 @@
+<div class="container py-4">
+  <h1 class="h3 mb-4 fw-bold"><i class="fas fa-user-circle text-primary me-2"></i>Dashboard Utente</h1>
+  <div class="row g-4">
+    <% if (!company) { %>
+    <div class="col-12">
+      <div class="alert alert-warning d-flex justify-content-between align-items-center">
+        <div>
+          <strong>Profilo aziendale incompleto:</strong> devi compilare i dati della tua azienda per accedere a tutte le funzionalità.
+        </div>
+        <div>
+          <a href="/company" class="btn btn-sm btn-primary">Compila Azienda</a>
+        </div>
+      </div>
+    </div>
+    <% } %>
+    <div class="col-md-6 col-lg-4">
+      <div class="card border-0 shadow-sm text-center">
+        <div class="card-body">
+          <i class="fas fa-envelope fa-2x text-primary mb-2"></i>
+          <h5 class="card-title">Messaggi</h5>
+          <p class="display-6 fw-bold mb-0"><%= stats && stats.messages ? stats.messages : 0 %></p>
+          <small class="text-muted">Non letti: <span class="badge bg-danger"><%= stats && stats.unread_messages ? stats.unread_messages : 0 %></span></small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+      <div class="card border-0 shadow-sm text-center">
+        <div class="card-body">
+          <i class="fas fa-calendar-alt fa-2x text-success mb-2"></i>
+          <h5 class="card-title">Eventi disponibili</h5>
+          <p class="display-6 fw-bold mb-0"><%= stats && stats.events ? stats.events : 0 %></p>
+          <small class="text-muted">Iscrizioni: <span class="badge bg-primary"><%= stats && stats.registrations ? stats.registrations : 0 %></span></small>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4 d-flex align-items-stretch">
+      <div class="card border-0 shadow-sm w-100">
+        <div class="card-body d-flex flex-column justify-content-center">
+          <i class="fas fa-info-circle fa-2x text-secondary mb-2"></i>
+          <h5 class="card-title">Regolamento</h5>
+          <div id="regolamento" class="text-start small"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// Esempio di JSON regolamento (puoi caricarlo via fetch o da variabile server)
+const regolamentoData = {
+  titolo: "Regolamento Piattaforma",
+  testo: "L'utilizzo della piattaforma è soggetto alle seguenti regole: ... (personalizza qui il testo del regolamento)"
+};
+document.addEventListener('DOMContentLoaded', function() {
+  const regDiv = document.getElementById('regolamento');
+  if (regDiv && regolamentoData) {
+    regDiv.innerHTML = `<strong>${regolamentoData.titolo}</strong><br>${regolamentoData.testo}`;
+  }
+});
+</script>

@@ -1,0 +1,28 @@
+<div class="container py-4">
+  <h1 class="h3 mb-4 fw-bold"><i class="fas fa-cog text-secondary me-2"></i>Impostazioni Profilo</h1>
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <form method="post" action="/user/settings" class="row g-3">
+        <div class="col-md-6">
+          <label for="firstName" class="form-label">Nome</label>
+          <input type="text" class="form-control" id="firstName" name="firstName" value="<%= user ? user.firstName : '' %>" required>
+        </div>
+        <div class="col-md-6">
+          <label for="lastName" class="form-label">Cognome</label>
+          <input type="text" class="form-control" id="lastName" name="lastName" value="<%= user ? user.lastName : '' %>" required>
+        </div>
+        <div class="col-md-12">
+          <label for="email" class="form-label">Email</label>
+          <input type="email" class="form-control" id="email" name="email" value="<%= user ? user.email : '' %>" required>
+        </div>
+        <div class="col-md-12">
+          <label for="password" class="form-label">Nuova Password</label>
+          <input type="password" class="form-control" id="password" name="password" placeholder="Lascia vuoto per non cambiare">
+        </div>
+        <div class="col-12 d-grid">
+          <button type="submit" class="btn btn-primary">Salva modifiche</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

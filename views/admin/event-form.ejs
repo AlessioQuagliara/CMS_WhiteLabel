@@ -1,0 +1,104 @@
+
+<div class="container mt-4">
+  <h1><%= event ? 'Modifica Evento' : 'Crea Evento' %></h1>
+
+  <form action="<%= event ? ('/admin/events/' + event.id + '?_method=PUT') : '/admin/events' %>" method="post">
+    <div class="mb-3">
+      <label class="form-label">Titolo</label>
+      <input type="text" name="title" class="form-control" value="<%= event ? event.title : '' %>" required>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Descrizione</label>
+      <textarea name="description" class="form-control" rows="6"><%= event ? event.description : '' %></textarea>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Data inizio</label>
+        <input type="datetime-local" name="event_date" class="form-control" value="<%= event && event.event_date ? new Date(event.event_date).toISOString().slice(0,16) : '' %>" required>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Data fine (opzionale)</label>
+        <input type="datetime-local" name="end_date" class="form-control" value="<%= event && event.end_date ? new Date(event.end_date).toISOString().slice(0,16) : '' %>">
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Luogo</label>
+      <input type="text" name="location" class="form-control" value="<%= event ? event.location : '' %>">
+    </div>
+
+    <div class="row">
+      <div class="col-md-4 mb-3">
+        <label class="form-label">Max partecipanti</label>
+        <input type="number" name="max_participants" class="form-control" value="<%= event && event.max_participants ? event.max_participants : '' %>">
+      </div>
+      <div class="col-md-4 mb-3">
+        <label class="form-label">Attivo</label>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="is_active" id="is_active" <%= event && event.is_active ? 'checked' : '' %>>
+          <label class="form-check-label" for="is_active">Visibile</label>
+        </div>
+      </div>
+    </div>
+
+    <h5 class="mt-3">Regole di visibilità (opzionale)</h5>
+    <div class="mb-3">
+      <label class="form-label">Campo attività (comma-separated)</label>
+      <input type="text" name="campo_attivita" class="form-control" value="<%= event && event.visibility_rules && event.visibility_rules.campo_attivita ? (Array.isArray(event.visibility_rules.campo_attivita) ? event.visibility_rules.campo_attivita.join(', ') : event.visibility_rules.campo_attivita) : '' %>">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Provincia (comma-separated)</label>
+      <input type="text" name="provincia" class="form-control" value="<%= event && event.visibility_rules && event.visibility_rules.provincia ? (Array.isArray(event.visibility_rules.provincia) ? event.visibility_rules.provincia.join(', ') : event.visibility_rules.provincia) : '' %>">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Nazione (comma-separated)</label>
+      <input type="text" name="nazione" class="form-control" value="<%= event && event.visibility_rules && event.visibility_rules.nazione ? (Array.isArray(event.visibility_rules.nazione) ? event.visibility_rules.nazione.join(', ') : event.visibility_rules.nazione) : '' %>">
+    </div>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Fatturato minimo</label>
+        <input type="number" step="0.01" name="fatturato_min" class="form-control" value="<%= event && event.visibility_rules && event.visibility_rules.fatturato_min ? event.visibility_rules.fatturato_min : '' %>">
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Fatturato massimo</label>
+        <input type="number" step="0.01" name="fatturato_max" class="form-control" value="<%= event && event.visibility_rules && event.visibility_rules.fatturato_max ? event.visibility_rules.fatturato_max : '' %>">
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <button class="btn btn-primary"><%= event ? 'Aggiorna Evento' : 'Crea Evento' %></button>
+      <a href="/admin/events" class="btn btn-secondary">Annulla</a>
+    </div>
+  </form>
+</div>
+
+<div id="admin-event-form-flash" style="display:none" data-success="<%= encodeURIComponent(typeof flash !== 'undefined' && flash.success ? flash.success : '') %>" data-error="<%= encodeURIComponent(typeof flash !== 'undefined' && flash.error ? flash.error : '') %>"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+  (function(){
+    const el = document.getElementById('admin-event-form-flash');
+    if (el) {
+      const ok = el.dataset.success ? decodeURIComponent(el.dataset.success) : null;
+      const err = el.dataset.error ? decodeURIComponent(el.dataset.error) : null;
+      if (err) window.Swal && Swal.fire({ icon: 'error', title: 'Errore', text: err });
+      if (ok) window.Swal && Swal.fire({ icon: 'success', title: 'Fatto', text: ok });
+    }
+  })();
+
+  // Basic validation: event_date should be before end_date when both provided
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      const start = form.querySelector('[name="event_date"]').value;
+      const end = form.querySelector('[name="end_date"]').value;
+      if (start && end && new Date(start) > new Date(end)) {
+        e.preventDefault();
+        if (window.Swal) return Swal.fire({ icon: 'warning', title: 'Validazione', text: 'La data di inizio deve essere precedente o uguale alla data di fine.' });
+        return alert('La data di inizio deve essere precedente o uguale alla data di fine.');
+      }
+    });
+  }
+</script>

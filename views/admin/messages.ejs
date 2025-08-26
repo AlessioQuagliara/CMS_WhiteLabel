@@ -1,0 +1,272 @@
+<div class="d-flex flex-column flex-md-row align-items-center justify-content-between mb-4">
+	<h1 class="h3 fw-bold mb-3 mb-md-0"><i class="fas fa-envelope text-primary me-2"></i>Gestione Messaggi</h1>
+	<span class="badge bg-primary bg-opacity-75 fs-6">
+		Benvenuto,
+		<% if (user) { %>
+			<%= (user.first_name || user.last_name) ? ((user.first_name || '') + ' ' + (user.last_name || '')).trim() : (user.name || 'Admin') %>
+		<% } else { %>
+			Admin
+		<% } %>
+	</span>
+</div>
+<div class="card shadow-sm border-0 mb-4">
+	<div class="card-body">
+		<table class="table table-hover align-middle mb-0">
+			<thead class="table-light">
+				<tr>
+					<th>#</th>
+					<th>Mittente</th>
+					<th>Email mittente</th>
+					<th>Messaggi Ricevuti</th>
+					<th>Azioni</th>
+				</tr>
+			</thead>
+ 			<tbody id="usersTableBody">
+ 				<!-- User rows will be populated client-side from `messages` payload -->
+ 			</tbody>
+ 			</table>
+ 		</div>
+ 	</div>
+
+<!-- Chat modal: carica conversazione e permette invio messaggi in stile chat -->
+<div class="modal fade" id="chatModal" tabindex="-1" aria-labelledby="chatModalLabel" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered modal-lg">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="chatModalLabel">Chat con <span id="chatUserName"></span></h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<div id="chatContainer" style="display:flex;flex-direction:column;height:60vh;">
+					<div id="chatMessages" style="flex:1;overflow:auto;padding:12px;background:#f7f7f7;border-radius:8px;">
+						<!-- messages appended here -->
+					</div>
+					<form id="chatSendForm" style="display:flex;gap:8px;margin-top:8px;">
+						<input type="text" id="chatInput" class="form-control" placeholder="Scrivi un messaggio..." autocomplete="off" required>
+						<button class="btn btn-primary" type="submit">Invia</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- Expose server-side data safely -->
+<span id="adminId" data-id="<%= user && (user.adminId || user.id || user.userId) ? (user.adminId || user.id || user.userId) : 1 %>" hidden></span>
+<span id="adminName" data-name="<%= (user && ((user.first_name || user.last_name) ? ((user.first_name || '') + ' ' + (user.last_name || '')).trim() : (user.name || 'Admin'))) %>" hidden></span>
+<span id="adminEmail" data-email="<%= (user && user.email) ? user.email : '' %>" hidden></span>
+<script id="usersInitial" type="application/json"><%- JSON.stringify(usersWithCounts || []) %></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+	// Socket.IO admin (read id from DOM)
+	const adminId = document.getElementById('adminId').dataset.id;
+	const socket = io();
+	socket.on('connect', () => {
+		socket.emit('identify', { type: 'admin', id: adminId });
+	});
+
+	// Build or update users table from server-provided `usersWithCounts`
+	function updateUsersTable(users) {
+		const tbody = document.getElementById('usersTableBody');
+		tbody.innerHTML = '';
+		if (!users || users.length === 0) {
+			tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Nessun utente trovato.</td></tr>';
+			return;
+		}
+		let idx = 1;
+		users.forEach(u => {
+			const userId = u.id;
+				const name = ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || ('Utente ' + userId);
+			const email = u.email || '';
+			const count = u.message_count || 0;
+			const tr = document.createElement('tr');
+			tr.innerHTML = `
+				<td>${idx++}</td>
+				<td>${name}</td>
+				<td>${email || '-'}</td>
+				<td>${count}</td>
+				<td>
+					<button class="btn btn-sm btn-outline-primary" data-userid="${userId}" data-name="${name}" data-email="${email}" onclick="openChat(this.dataset.userid, this.dataset.name, this.dataset.email)">Apri Chat (${count})</button>
+				</td>
+			`;
+			tbody.appendChild(tr);
+		});
+	}
+
+	// inizializza con dati server-side (lettura da script JSON)
+	try {
+		const initial = document.getElementById('usersInitial').textContent;
+		const parsed = initial ? JSON.parse(initial) : [];
+		updateUsersTable(parsed || []);
+	} catch (err) {
+		console.warn('Errore parsing usersInitial', err);
+		updateUsersTable([]);
+	}
+
+	// Polling per aggiornare la tabella ogni 10s
+	async function pollAdminSummary() {
+		try {
+			const res = await fetch('/admin/messages/summary');
+			if (!res.ok) throw new Error('Errore summary');
+			const json = await res.json();
+			updateUsersTable(json.users || []);
+		} catch (err) {
+			console.warn('Admin summary poll error:', err);
+		}
+	}
+	setInterval(pollAdminSummary, 10000);
+
+	// CSS animation class for new/updated rows
+	const style = document.createElement('style');
+	style.innerHTML = `
+	.row-new { animation: highlightRow 1.4s ease; }
+	@keyframes highlightRow { 0% { background: #fff3cd; } 50% { background: #fff9e6; } 100% { background: transparent; } }
+	`;
+	document.head.appendChild(style);
+
+	// Open chat modal, load conversation via AJAX
+	window.openChat = async function(userId, name, email) {
+		document.getElementById('chatUserName').innerText = name || ('Utente ' + userId);
+		const modalEl = document.getElementById('chatModal');
+		const modal = new bootstrap.Modal(modalEl);
+		modal.show();
+		// clear messages
+		const chatMessages = document.getElementById('chatMessages');
+		chatMessages.innerHTML = '<div class="text-center text-muted">Caricamento...</div>';
+		// fetch conversation
+		try {
+			const resp = await fetch(`/admin/messages/conversation/${userId}`);
+			if (!resp.ok) throw new Error('Errore caricamento conversazione');
+			const data = await resp.json();
+			chatMessages.innerHTML = '';
+			(data.messages || []).sort((a,b) => new Date(a.created_at) - new Date(b.created_at)).forEach(m => {
+				const div = document.createElement('div');
+				div.style.marginBottom = '8px';
+				div.innerHTML = `<div style="max-width:70%;padding:8px;border-radius:10px;${m.from_admin_id ? 'background:#d1e7ff;margin-left:auto;color:#0d6efd' : 'background:#e1ffc7;margin-right:auto;color:#0b5d0b'}">${m.message}<div style="font-size:0.75em;opacity:0.7;margin-top:4px">${new Date(m.created_at).toLocaleString()}</div></div>`;
+				chatMessages.appendChild(div);
+			});
+			chatMessages.scrollTop = chatMessages.scrollHeight;
+			// set current chat target
+			modalEl.dataset.targetUser = userId;
+		} catch (err) {
+			chatMessages.innerHTML = '<div class="text-danger">Errore caricamento conversazione</div>';
+			console.error(err);
+		}
+	};
+
+	// Send message from modal (admin -> user)
+	document.getElementById('chatSendForm').addEventListener('submit', async function(e) {
+		e.preventDefault();
+		const input = document.getElementById('chatInput');
+		const text = input.value.trim();
+		if (!text) return;
+		const modalEl = document.getElementById('chatModal');
+		const toUserId = modalEl.dataset.targetUser;
+		// Save first
+		try {
+			const resp = await fetch('/admin/messages/send', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ toUserId, message: text })
+			});
+			const payload = await resp.json();
+			if (!resp.ok) {
+				if (payload && payload.error === 'session_expired') {
+					Swal.fire({
+						icon: 'warning',
+						title: 'Sessione scaduta',
+						text: payload.message || 'La sessione è scaduta. Effettua il login per continuare.',
+						confirmButtonText: 'Accedi'
+					}).then(() => {
+						window.location.href = '/admin/login';
+					});
+					return;
+				}
+				throw new Error(payload.error || 'Errore invio');
+			}
+			// Note: non emettiamo via socket dal client perché il server già emette
+			// l'evento dopo aver salvato il messaggio (server-authoritative).
+			// append message locally
+			const chatMessages = document.getElementById('chatMessages');
+			const div = document.createElement('div');
+			div.style.marginBottom = '8px';
+			div.innerHTML = `<div style="max-width:70%;padding:8px;border-radius:10px;background:#d1e7ff;margin-left:auto;color:#0d6efd">${text}<div style="font-size:0.75em;opacity:0.7;margin-top:4px">Ora</div></div>`;
+			chatMessages.appendChild(div);
+			chatMessages.scrollTop = chatMessages.scrollHeight;
+			input.value = '';
+		} catch (err) {
+			console.error('Errore invio chat admin:', err);
+			Swal.fire({ icon: 'error', title: 'Errore', text: err.message || 'Errore invio messaggio' });
+		}
+	});
+	// Ricezione messaggio in tempo reale
+	socket.on('message:receive', function(data) {
+		// Mostra toast con SweetAlert2
+		const senderName = data.name || ('Utente ' + (data.fromId || ''));
+		Swal.fire({
+			toast: true,
+			position: 'top-end',
+			showConfirmButton: false,
+			timer: 5000,
+			timerProgressBar: true,
+			icon: 'info',
+			title: `Nuovo messaggio da ${senderName}`,
+			text: data.message
+		});
+
+		// Aggiorna conteggio nella tabella se presente
+		try {
+			const fromId = data.fromId && data.fromId.toString();
+			const btn = document.querySelector(`#usersTableBody button[data-userid='${fromId}']`);
+			if (btn) {
+				// Aggiorna il testo del bottone (conteggio incrementale visivo)
+				const tr = btn.closest('tr');
+				const countCell = tr.children[7];
+				const current = parseInt(countCell.innerText || '0', 10);
+				countCell.innerText = current + 1;
+				btn.innerText = `Apri Chat (${current + 1})`;
+				// add highlight class
+				const rowEl = tr;
+				rowEl.classList.remove('row-new');
+				// trigger reflow to restart animation
+				void rowEl.offsetWidth;
+				rowEl.classList.add('row-new');
+				// Se la chat è aperta con questo utente, appendi il messaggio
+				const modalEl = document.getElementById('chatModal');
+				if (modalEl.dataset.targetUser && modalEl.dataset.targetUser.toString() === fromId) {
+					const chatMessages = document.getElementById('chatMessages');
+					const div = document.createElement('div');
+					div.style.marginBottom = '8px';
+					div.innerHTML = `<div style="max-width:70%;padding:8px;border-radius:10px;background:#e1ffc7;margin-right:auto;color:#0b5d0b">${data.message}<div style="font-size:0.75em;opacity:0.7;margin-top:4px">${new Date(data.created_at || Date.now()).toLocaleString()}</div></div>`;
+					chatMessages.appendChild(div);
+					chatMessages.scrollTop = chatMessages.scrollHeight;
+				}
+			} else {
+				// se non presente, forza un poll per aggiornare la tabella
+				pollAdminSummary();
+			}
+		} catch (err) {
+			console.warn('Errore aggiornamento tabella admin dopo socket:', err);
+		}
+	});
+
+	// Listen for direct admin:users:update pushes
+	socket.on('admin:users:update', function(payload) {
+		try {
+			const userId = payload.userId && payload.userId.toString();
+			const tbody = document.getElementById('usersTableBody');
+			const btn = tbody.querySelector(`button[data-userid='${userId}']`);
+			if (btn) {
+				const tr = btn.closest('tr');
+				tr.children[7].innerText = payload.message_count || 0;
+				btn.innerText = `Apri Chat (${payload.message_count || 0})`;
+				tr.classList.remove('row-new'); void tr.offsetWidth; tr.classList.add('row-new');
+			} else {
+				// se non esiste, ricarica la tabella veloce (poll once)
+				pollAdminSummary();
+			}
+		} catch (err) {
+			console.warn('Errore processing admin:users:update', err);
+		}
+	});
+</script>

@@ -1,0 +1,15 @@
+<div class="text-center my-4">
+	<% if (typeof success !== 'undefined' && success) { %>
+		<div class="alert alert-success" role="alert">
+			<i class="fas fa-check-circle"></i> <%= success %>
+		</div>
+	<% } %>
+	<% if (typeof error !== 'undefined' && error) { %>
+		<div class="alert alert-danger" role="alert">
+			<i class="fas fa-exclamation-triangle"></i> <%= error %>
+		</div>
+	<% } %>
+	<a href="/admin/auth/login" class="btn btn-primary mt-3">
+		<i class="fas fa-sign-in-alt"></i> Vai al login admin
+	</a>
+</div>

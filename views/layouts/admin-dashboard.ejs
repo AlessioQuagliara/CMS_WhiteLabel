@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= typeof title !== 'undefined' ? title : 'Admin CMS' %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --main-blue: #001f3f;
+            --main-bg: #f8f9fa;
+            --main-text: #212529;
+        }
+        body {
+            background: var(--main-bg);
+            color: var(--main-text);
+        }
+        .navbar-admin {
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            z-index: 1050;
+        }
+        .navbar-admin .navbar-brand {
+            font-weight: bold;
+            color: var(--main-blue);
+            letter-spacing: 1px;
+        }
+        .navbar-admin .btn-menu {
+            border: none;
+            background: none;
+            color: var(--main-blue);
+            font-size: 1.7rem;
+        }
+        .sidebar {
+            min-height: 100vh;
+            background: var(--main-blue);
+            color: var(--main-blue);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.04);
+        }
+        .sidebar .nav-link {
+            color: #fff;
+            font-size: 1.08rem;
+            display: flex;
+            align-items: center;
+            gap: 0.7em;
+            padding: 0.75rem 1.2rem;
+            border-radius: 0.5rem;
+            transition: background 0.18s, color 0.18s;
+        }
+        .sidebar .nav-link.active, .sidebar .nav-link:focus, .sidebar .nav-link:hover {
+            background: #fff;
+            color: var(--main-blue) !important;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .sidebar .nav-link i {
+            width: 1.5em;
+            font-size: 1.2em;
+        }
+        .sidebar .sidebar-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 2rem;
+            letter-spacing: 1px;
+        }
+        .sidebar .nav {
+            margin-bottom: 2rem;
+        }
+        .sidebar .btn-logout {
+            border: 1px solid #fff;
+            color: #fff;
+            width: 100%;
+            margin-top: 2rem;
+        }
+        .sidebar .btn-logout:hover {
+            background: #fff;
+            color: var(--main-blue);
+        }
+        .offcanvas-backdrop {
+            z-index: 1040;
+        }
+        @media (max-width: 991.98px) {
+            .sidebar {
+                min-height: auto;
+            }
+            .sidebar .nav-link span {
+                display: inline !important;
+            }
+        }
+        @media (max-width: 575.98px) {
+            .navbar-admin .navbar-brand {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar superiore -->
+    <nav class="navbar navbar-admin navbar-expand-lg sticky-top py-2 px-3 shadow-sm">
+        <div class="container-fluid">
+            <button class="btn btn-menu d-lg-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas" aria-controls="sidebarOffcanvas" aria-label="Apri menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/admin/dashboard">
+                <i class="fa-solid fa-bars-progress"></i> Spotex SRL
+            </a>
+            <div class="d-none d-lg-block ms-auto">
+                <a href="/admin/auth/logout" class="btn btn-outline-primary"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar desktop / Offcanvas mobile -->
+            <nav style="background-color: var(--main-blue) !important;" id="sidebarOffcanvas" class="sidebar col-lg-2 d-lg-block offcanvas-lg offcanvas-start px-0" tabindex="-1" aria-labelledby="sidebarLabel">
+                <div class="offcanvas-header d-lg-none">
+                    <h5 class="offcanvas-title" id="sidebarLabel">Menu</h5>
+                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Chiudi"></button>
+                </div>
+                <div class="sidebar-sticky pt-3 px-3 px-lg-0">
+                    <div class="sidebar-header d-none d-lg-block mb-4">
+                    </div>
+                    <ul class="nav flex-column gap-1 px-3">
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'dashboard' ? 'active' : '' %>" href="/admin/dashboard">
+                                <i class="fas fa-tachometer-alt"></i> <span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'users' ? 'active' : '' %>" href="/admin/users">
+                                <i class="fas fa-users"></i> <span>Utenti</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'account' ? 'active' : '' %>" href="/admin/account">
+                                <i class="fas fa-user-cog"></i> <span>Account</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'messages' ? 'active' : '' %>" href="/admin/messages">
+                                <i class="fas fa-envelope"></i> <span>Messaggi</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'events' ? 'active' : '' %>" href="/admin/events">
+                                <i class="fas fa-calendar-alt"></i> <span>Eventi</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link <%= activePage === 'stats' ? 'active' : '' %>" href="/admin/stats">
+                                <i class="fas fa-chart-line"></i> <span>Statistiche</span>
+                            </a>
+                        </li>
+                    </ul>
+                    <div class="d-lg-none mt-4">
+                        <a href="/admin/auth/logout" class="btn btn-logout"><i class="fas fa-sign-out-alt me-2"></i>Logout</a>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-12 col-lg-10 ms-auto px-0 px-md-4 py-4 min-vh-100">
+                <div class="container-fluid px-3 px-md-0">
+                    <% if (typeof error !== 'undefined' && error) { %>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <%= error %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    <% } %>
+                    <% if (typeof success !== 'undefined' && success) { %>
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <%= success %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    <% } %>
+                    <% if (typeof message !== 'undefined' && message) { %>
+                        <div class="alert alert-info alert-dismissible fade show" role="alert">
+                            <%= message %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    <% } %>
+                    <!-- Qui viene inserito il contenuto della pagina dashboard.ejs -->
+                    <%- body %>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

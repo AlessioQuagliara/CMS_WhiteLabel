@@ -1,0 +1,31 @@
+<form action="/admin/auth/login" method="POST">
+    <div class="mb-3">
+        <label for="email" class="form-label">Email Admin</label>
+        <input type="email" class="form-control" id="email" name="email" required 
+               placeholder="admin@example.com">
+    </div>
+    
+    <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" class="form-control" id="password" name="password" required 
+               placeholder="Inserisci la tua password">
+    </div>
+    
+    <button type="submit" class="btn btn-primary w-100 mb-3">
+        <i class="fas fa-sign-in-alt"></i> Accedi come Admin
+    </button>
+    
+    <div class="text-center">
+        <a href="/admin/auth/forgot-password" class="text-decoration-none">
+            Password dimenticata?
+        </a>
+    </div>
+</form>
+
+<hr>
+
+<div class="text-center">
+    <p class="text-muted">Non hai accesso admin? 
+        <a href="/auth/login" class="text-decoration-none">Vai al login utente</a>
+    </p>
+</div>

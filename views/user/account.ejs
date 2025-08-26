@@ -1,0 +1,116 @@
+<div class="container py-4">
+  <h1 class="h4 fw-bold mb-3"><i class="fas fa-user-cog text-primary me-2"></i>Account</h1>
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <form id="account-form" class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Email</label>
+          <input name="email" type="email" required class="form-control" value="<%= user && user.email ? user.email : '' %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Telefono</label>
+          <input name="phone" class="form-control" value="<%= user && user.phone ? user.phone : '' %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Nome</label>
+          <input name="first_name" class="form-control" value="<%= user && user.first_name ? user.first_name : '' %>">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Cognome</label>
+          <input name="last_name" class="form-control" value="<%= user && user.last_name ? user.last_name : '' %>">
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Nuova password <small class="text-muted">(lascia vuoto per mantenere)</small></label>
+          <input name="password" type="password" class="form-control" placeholder="Nuova password">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Conferma password</label>
+          <input name="password_confirm" type="password" class="form-control" placeholder="Conferma password">
+        </div>
+
+        <div class="col-12 text-end">
+          <button id="save-account" class="btn btn-primary">Salva</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('account-form').addEventListener('submit', async function(e){
+  e.preventDefault();
+  const form = e.target;
+  const password = form.password.value;
+  const passwordConfirm = form.password_confirm.value;
+  if (password || passwordConfirm) {
+    if (password !== passwordConfirm) {
+      if (window.Swal) return Swal.fire({ icon: 'warning', title: 'Attenzione', text: 'Le password non coincidono' });
+      return alert('Le password non coincidono');
+    }
+    if (password.length < 8) {
+      if (window.Swal) return Swal.fire({ icon: 'warning', title: 'Attenzione', text: 'La password deve essere lunga almeno 8 caratteri' });
+      return alert('La password deve essere lunga almeno 8 caratteri');
+    }
+  }
+
+  const data = {
+    email: form.email.value.trim(),
+    first_name: form.first_name.value.trim(),
+    last_name: form.last_name.value.trim(),
+    phone: form.phone.value.trim()
+  };
+  if (password) data.password = password;
+
+  try {
+    const res = await fetch('/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json && json.message ? json.message : 'Errore aggiornamento profilo');
+    if (window.Swal) Swal.fire({ icon: 'success', title: 'Fatto', text: json.message || 'Profilo aggiornato' });
+    else alert(json.message || 'Profilo aggiornato');
+  } catch (err) {
+    if (window.Swal) Swal.fire({ icon: 'error', title: 'Errore', text: err.message });
+    else alert(err.message);
+  }
+});
+</script>
+
+<!-- SweetAlert2 alerts for server-rendered messages -->
+<div id="account-flash" style="display:none"
+  data-error="<%= encodeURIComponent(typeof error !== 'undefined' && error ? error : '') %>"
+  data-success="<%= encodeURIComponent(typeof success !== 'undefined' && success ? success : '') %>">
+</div>
+<script>
+  (function(){
+    try {
+      const el = document.getElementById('account-flash');
+      if (!el) return;
+      const err = el.dataset.error ? decodeURIComponent(el.dataset.error) : null;
+      const ok = el.dataset.success ? decodeURIComponent(el.dataset.success) : null;
+      if (!err && !ok) return;
+      function show() {
+        if (!window.Swal) {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js';
+          s.async = true;
+          s.onload = () => _show();
+          s.onerror = () => console.warn('Impossibile caricare SweetAlert2 dal CDN');
+          document.head.appendChild(s);
+          return;
+        }
+        _show();
+      }
+      function _show() {
+        if (err) return Swal.fire({ icon: 'error', title: 'Errore', text: err, confirmButtonText: 'OK' });
+        if (ok) return Swal.fire({ icon: 'success', title: 'Fatto', text: ok, confirmButtonText: 'OK' });
+      }
+      show();
+    } catch (e) {
+      console.warn('Errore gestione alert account:', e);
+    }
+  })();
+</script>

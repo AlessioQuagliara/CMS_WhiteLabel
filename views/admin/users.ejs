@@ -9,6 +9,12 @@
 		<% } %>
 	</span>
 </div>
+<form class="mb-3" method="get" action="/admin/users">
+	<div class="input-group">
+		<input type="search" name="q" class="form-control" placeholder="Cerca per email, nome o azienda" value="<%= typeof q !== 'undefined' ? q : '' %>">
+		<button class="btn btn-outline-secondary" type="submit">Cerca</button>
+	</div>
+</form>
 <div class="card shadow-sm border-0 mb-4">
 	<div class="card-body">
 		<table class="table table-hover align-middle mb-0">
@@ -17,6 +23,7 @@
 					<th>#</th>
 					<th>Email</th>
 					<th>Nome</th>
+					<th>Company</th>
 					<th>Registrato il</th>
 					<th>Azioni</th>
 				</tr>
@@ -28,17 +35,88 @@
 							<td><%= i+1 %></td>
 							<td><%= u.email %></td>
 							<td><%= u.name || '-' %></td>
+							<td><%= u.company || '-' %></td>
 							<td><%= u.created_at ? u.created_at.toLocaleDateString() : '-' %></td>
 							<td>
-								<a href="#" class="btn btn-sm btn-outline-primary"><i class="fas fa-edit"></i></a>
-								<a href="#" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></a>
+								<a href="/admin/users/<%= u.id %>" class="btn btn-sm btn-outline-primary me-1" title="Visualizza"><i class="fas fa-eye"></i></a>
+															<form action="/admin/users/<%= u.id %>?_method=DELETE" method="post" class="d-inline-block user-delete-form" data-user-id="<%= u.id %>">
+																		<button type="button" class="btn btn-sm btn-outline-danger btn-user-delete" title="Elimina"><i class="fas fa-trash"></i></button>
+																	</form>
 							</td>
 						</tr>
 					<% }) %>
 				<% } else { %>
-					<tr><td colspan="5" class="text-center text-muted">Nessun utente trovato.</td></tr>
+					<tr><td colspan="6" class="text-center text-muted">Nessun utente trovato.</td></tr>
 				<% } %>
 			</tbody>
 		</table>
 	</div>
 </div>
+	<% if (typeof pagination !== 'undefined') { %>
+	  <nav aria-label="Users pagination">
+	    <ul class="pagination">
+	      <% for (let p = 1; p <= pagination.pages; p++) { %>
+	        <li class="page-item <%= p === pagination.page ? 'active' : '' %>"><a class="page-link" href="?page=<%= p %>&limit=<%= pagination.limit %>"><%= p %></a></li>
+	      <% } %>
+	    </ul>
+	  </nav>
+	<% } %>
+
+
+<!-- Flash via SweetAlert2 -->
+<div id="admin-users-flash" style="display:none" data-error="<%= encodeURIComponent(typeof flash !== 'undefined' && flash.error ? flash.error : '') %>" data-success="<%= encodeURIComponent(typeof flash !== 'undefined' && flash.success ? flash.success : '') %>"></div>
+<script>
+	(function(){
+		try {
+			if (typeof Swal === 'undefined') {
+				const s = document.createElement('script');
+				s.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js';
+				s.async = true;
+				document.head.appendChild(s);
+			}
+			const el = document.getElementById('admin-users-flash');
+			if (!el) return;
+			const err = el.dataset.error ? decodeURIComponent(el.dataset.error) : null;
+			const ok = el.dataset.success ? decodeURIComponent(el.dataset.success) : null;
+			if (!err && !ok) return;
+			function show() {
+				if (!window.Swal) return setTimeout(show, 200);
+				if (err) return Swal.fire({ icon: 'error', title: 'Errore', text: err });
+				if (ok) return Swal.fire({ icon: 'success', title: 'Fatto', text: ok });
+			}
+			show();
+
+			// attach delete handlers using SweetAlert2
+			function attachDeleteHandlers() {
+				const forms = document.querySelectorAll('.user-delete-form');
+				forms.forEach(f => {
+					const btn = f.querySelector('.btn-user-delete');
+					if (!btn) return;
+					btn.addEventListener('click', function (e) {
+						const userId = f.dataset.userId;
+						if (!window.Swal) return alert('Conferma eliminazione');
+						Swal.fire({
+							title: 'Confermi eliminazione?',
+							text: 'Questa operazione è irreversibile',
+							icon: 'warning',
+							showCancelButton: true,
+							confirmButtonText: 'Elimina',
+							cancelButtonText: 'Annulla'
+						}).then(result => {
+							if (result.isConfirmed) {
+								// submit the form
+								f.submit();
+							}
+						});
+					});
+				});
+			}
+			// wait for Swal to be ready then attach
+			function waitAndAttach() {
+				if (window.Swal) return attachDeleteHandlers();
+				setTimeout(waitAndAttach, 150);
+			}
+			waitAndAttach();
+		} catch (e) { console.warn('admin users flash error', e); }
+	})();
+</script>

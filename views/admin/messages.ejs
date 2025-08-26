@@ -9,6 +9,14 @@
 		<% } %>
 	</span>
 </div>
+
+<form class="mb-3" method="get" action="/admin/messages">
+	<div class="input-group mb-3">
+		<input type="search" name="q" class="form-control" placeholder="Cerca per email o nome utente" value="<%= typeof q !== 'undefined' ? q : '' %>">
+		<button class="btn btn-outline-secondary" type="submit">Cerca</button>
+	</div>
+</form>
+
 <div class="card shadow-sm border-0 mb-4">
 	<div class="card-body">
 		<table class="table table-hover align-middle mb-0">
@@ -50,6 +58,18 @@
 		</div>
 	</div>
 </div>
+
+
+
+<% if (typeof pagination !== 'undefined') { %>
+	<nav aria-label="Messages pagination">
+		<ul class="pagination">
+			<% for (let p = 1; p <= pagination.pages; p++) { %>
+				<li class="page-item <%= p === pagination.page ? 'active' : '' %>"><a class="page-link" href="?page=<%= p %>&limit=<%= pagination.limit %><%= q ? '&q=' + encodeURIComponent(q) : '' %>"><%= p %></a></li>
+			<% } %>
+		</ul>
+	</nav>
+<% } %>
 <!-- Expose server-side data safely -->
 <span id="adminId" data-id="<%= user && (user.adminId || user.id || user.userId) ? (user.adminId || user.id || user.userId) : 1 %>" hidden></span>
 <span id="adminName" data-name="<%= (user && ((user.first_name || user.last_name) ? ((user.first_name || '') + ' ' + (user.last_name || '')).trim() : (user.name || 'Admin'))) %>" hidden></span>

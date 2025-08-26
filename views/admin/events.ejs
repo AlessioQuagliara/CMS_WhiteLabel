@@ -5,6 +5,13 @@
     <a href="/admin/events/new" class="btn btn-primary">Crea Nuovo Evento</a>
   </div>
 
+  <form class="mb-3" method="get" action="/admin/events">
+    <div class="input-group">
+      <input type="search" name="q" class="form-control" placeholder="Cerca per titolo, descrizione o luogo" value="<%= typeof q !== 'undefined' ? q : '' %>">
+      <button class="btn btn-outline-secondary" type="submit">Cerca</button>
+    </div>
+  </form>
+
   <% if (events && events.length) { %>
     <div class="list-group">
       <% events.forEach(function(ev) { %>
@@ -17,8 +24,50 @@
             <% } %>
           </div>
           <div class="text-end">
-            <a href="/admin/events/<%= ev.id %>" class="btn btn-sm btn-outline-secondary">Modifica</a>
-            <button class="btn btn-sm btn-danger btn-delete-event" data-id="<%= ev.id %>">Elimina</button>
+            <div class="btn-group btn-group-sm d-flex align-items-center" role="group" aria-label="Azioni evento">
+              <a href="/admin/events/<%= ev.id %>" class="btn btn-outline-secondary" title="Modifica">
+                <!-- pencil icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.854a.5.5 0 0 1 .708 0l2.292 2.292a.5.5 0 0 1 0 .708l-9.193 9.193a.5.5 0 0 1-.168.11l-4 1.5a.5.5 0 0 1-.65-.65l1.5-4a.5.5 0 0 1 .11-.168L12.146.854zM11.207 3L13 4.793 14.207 3.586 12.414 1.793 11.207 3zM10.5 3.707L2 12.207V14h1.793L13.5 4.293 10.5 3.707z"/></svg>
+              </a>
+
+              <button class="btn btn-outline-danger btn-delete-event" data-id="<%= ev.id %>" title="Elimina">
+                <!-- trash icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 5h4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5v-7zM14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1 0-2H5.5L6.354.646A.5.5 0 0 1 6.854.5h2.292a.5.5 0 0 1 .5.146L10.5 2H14a1 1 0 0 1 .5.5z"/></svg>
+              </button>
+
+              <% /* helper to format date to Google Calendar format YYYYMMDDTHHMMSSZ */ %>
+              <% const toGCal = function(date) {
+                   if (!date) return '';
+                   try {
+                     const d = new Date(date);
+                     const pad = (n) => n.toString().padStart(2, '0');
+                     return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z';
+                   } catch (e) { return ''; }
+                 };
+                 const gStart = toGCal(ev.event_date);
+                 const gEnd = ev.end_date ? toGCal(ev.end_date) : (gStart || '');
+                 const gText = encodeURIComponent(ev.title || 'Evento');
+                 const gDetails = encodeURIComponent(ev.description ? ev.description.replace(/\n/g, '\\n') : '');
+                 const gLocation = encodeURIComponent(ev.location || '');
+                 const gDates = gStart ? (gStart + '/' + gEnd) : '';
+                 const gcalUrl = gDates ? ('https://www.google.com/calendar/render?action=TEMPLATE&text=' + gText + '&details=' + gDetails + '&location=' + gLocation + '&dates=' + gDates) : ('https://www.google.com/calendar/render?action=TEMPLATE&text=' + gText + '&details=' + gDetails + '&location=' + gLocation);
+              %>
+
+              <a href="<%= gcalUrl %>" target="_blank" rel="noopener" class="btn btn-outline-success" title="Aggiungi a Google">
+                <!-- calendar icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h.5A1.5 1.5 0 0 1 15 2.5v11A1.5 1.5 0 0 1 13.5 15h-11A1.5 1.5 0 0 1 1 13.5v-11A1.5 1.5 0 0 1 2.5 1H3V.5a.5.5 0 0 1 .5-.5zM2.5 3a.5.5 0 0 0-.5.5V4h12v-.5a.5.5 0 0 0-.5-.5h-11zM2 5v8.5c0 .276.224.5.5.5H13.5c.276 0 .5-.224.5-.5V5H2z"/></svg>
+              </a>
+
+              <a href="/events/<%= ev.id %>/calendar" target="_blank" rel="noopener" class="btn btn-outline-primary" title="Scarica .ics">
+                <!-- download icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5-.4h3.5v-6A1 1 0 0 1 6 2h4a1 1 0 0 1 1 1.5v6h3.5a.5.5 0 0 1 .5.4c.1.6.1 1.3 0 2a1 1 0 0 1-1 1H1.5a1 1 0 0 1-1-1c-.1-.7-.1-1.4 0-2zM8 4a.5.5 0 0 0-.5.5v4.793L6.354 7.646a.5.5 0 1 0-.708.708l2 2a.5.5 0 0 0 .708 0l2-2a.5.5 0 0 0-.708-.708L8.5 9.293V4.5A.5.5 0 0 0 8 4z"/></svg>
+              </a>
+
+              <button class="btn btn-outline-info" data-event-id="<%= ev.id %>" id="view-registrations-<%= ev.id %>" title="Visualizza iscritti">
+                <!-- people icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM2 8a3 3 0 1 1 6 0A5.978 5.978 0 0 1 13 9c0 .667-.1 1.31-.292 1.913C11.94 12.22 10.607 13 9 13H3c-1.607 0-2.94-.78-3.708-2.087A4.993 4.993 0 0 1 0 9c0-.833.167-1.633.5-2.375A3 3 0 0 1 2 8z"/></svg>
+              </button>
+            </div>
           </div>
         </div>
       <% }) %>
@@ -28,7 +77,7 @@
       <nav class="mt-3">
         <ul class="pagination">
           <% for (let p = 1; p <= pagination.pages; p++) { %>
-            <li class="page-item <%= p === pagination.page ? 'active' : '' %>"><a class="page-link" href="/admin/events?page=<%= p %>"><%= p %></a></li>
+            <li class="page-item <%= p === pagination.page ? 'active' : '' %>"><a class="page-link" href="/admin/events?page=<%= p %>&limit=<%= pagination.limit %><%= q ? '&q=' + encodeURIComponent(q) : '' %>"><%= p %></a></li>
           <% } %>
         </ul>
       </nav>
@@ -74,6 +123,78 @@
         Swal.fire({ icon: 'success', title: 'Eliminato', text: json.message || 'Evento eliminato' }).then(() => window.location.reload());
       } catch (err) {
         Swal.fire({ icon: 'error', title: 'Errore', text: err.message || 'Errore eliminazione' });
+      }
+    });
+  });
+</script>
+
+<!-- Registrations modal -->
+<div class="modal fade" id="registrationsModal" tabindex="-1" aria-labelledby="registrationsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="registrationsModalLabel">Iscritti</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <div id="registrations-loading" class="text-center py-4">Caricamento...</div>
+        <div id="registrations-list" style="display:none">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Company</th>
+                <th>Status</th>
+                <th>Iscritto il</th>
+              </tr>
+            </thead>
+            <tbody id="registrations-tbody"></tbody>
+          </table>
+        </div>
+        <div id="registrations-empty" class="alert alert-info" style="display:none">Nessuna iscrizione trovata.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Handle view registrations button clicks
+  document.querySelectorAll('button[id^="view-registrations-"]').forEach(btn => {
+    btn.addEventListener('click', async function () {
+      const eventId = this.getAttribute('data-event-id');
+      const modal = new bootstrap.Modal(document.getElementById('registrationsModal'));
+      // show loading
+      document.getElementById('registrations-loading').style.display = 'block';
+      document.getElementById('registrations-list').style.display = 'none';
+      document.getElementById('registrations-empty').style.display = 'none';
+      document.getElementById('registrations-tbody').innerHTML = '';
+      modal.show();
+      try {
+        const res = await fetch(`/admin/events/${eventId}/registrations`, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+        if (!res.ok) throw new Error('Errore caricamento iscritti');
+        const json = await res.json();
+        const regs = json.registrations || [];
+        if (!regs.length) {
+          document.getElementById('registrations-empty').style.display = 'block';
+          document.getElementById('registrations-loading').style.display = 'none';
+          return;
+        }
+        const tbody = document.getElementById('registrations-tbody');
+        regs.forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${(r.first_name || '') + ' ' + (r.last_name || '')}</td><td>${r.email || ''}</td><td>${r.company || ''}</td><td>${r.status || ''}</td><td>${new Date(r.created_at).toLocaleString()}</td>`;
+          tbody.appendChild(tr);
+        });
+        document.getElementById('registrations-list').style.display = 'block';
+        document.getElementById('registrations-loading').style.display = 'none';
+      } catch (err) {
+        document.getElementById('registrations-loading').style.display = 'none';
+        document.getElementById('registrations-empty').style.display = 'block';
+        document.getElementById('registrations-empty').textContent = 'Errore durante il caricamento.';
       }
     });
   });

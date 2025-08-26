@@ -171,10 +171,8 @@ class Event {
     }
     
     const registrationCount = await db('event_registrations')
-      .where({ 
-        event_id: eventId,
-        status: db.raw("IN ('confirmed', 'pending')")
-      })
+      .where('event_id', eventId)
+      .whereIn('status', ['confirmed', 'pending'])
       .count('* as count')
       .first();
     
@@ -211,7 +209,7 @@ class Event {
         .orWhere(function() {
           // Verifica regole per campo_attivita
           if (company.campo_attivita) {
-            this.orWhereRaw("e.visibility_rules->>'campo_attivata' LIKE ?", [`%${company.campo_attivita}%`]);
+            this.orWhereRaw("e.visibility_rules->>'campo_attivita' LIKE ?", [`%${company.campo_attivita}%`]);
           }
           
           // Verifica regole per provincia
@@ -224,22 +222,19 @@ class Event {
             this.orWhereRaw("e.visibility_rules->>'nazione' LIKE ?", [`%${company.nazione}%`]);
           }
           
-          // Verifica regole per fatturato
+          // Verifica regole per fatturato (supporta solo min, solo max o entrambi)
           if (company.fatturato) {
-            this.orWhere(function() {
-              this.whereRaw("(e.visibility_rules->>'fatturato_min')::numeric <= ?", [company.fatturato])
-                .andWhereRaw("(e.visibility_rules->>'fatturato_max')::numeric >= ?", [company.fatturato]);
-            });
+            const companyFatt = parseFloat(company.fatturato);
+            // usa COALESCE per trattare fatturato_max mancante come molto grande
+            this.orWhereRaw("(e.visibility_rules->>'fatturato_min')::numeric <= ? AND COALESCE((e.visibility_rules->>'fatturato_max')::numeric, 999999999999) >= ?", [companyFatt, companyFatt]);
           }
         });
     });
     
-    // Esegui query con paginazione
-    const eventsQuery = query.clone().orderBy('e.event_date', 'asc').offset(offset).limit(limit);
-    // Count separato per evitare problemi di GROUP BY
-    const countQuery = db('events as e').count('* as total');
-    // riapplica where utilizzati sopra
-    countQuery.where('e.is_active', true).where('e.event_date', '>=', db.fn.now());
+    // Esegui query con paginazione (ordina dal più recente al meno recente)
+    const eventsQuery = query.clone().orderBy('e.event_date', 'desc').offset(offset).limit(limit);
+    // Riusa la stessa query per il count per essere coerenti con i filtri
+    const countQuery = query.clone().clearSelect().clearOrder().count('* as total');
     const [events, total] = await Promise.all([
       eventsQuery,
       countQuery

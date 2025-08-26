@@ -39,9 +39,28 @@
 					<label for="password" class="form-label">Password</label>
 					<input type="password" class="form-control" id="password" name="password" required placeholder="Almeno 8 caratteri">
 				</div>
-				<button type="submit" class="btn btn-primary w-100 mb-3">
+				<div class="mb-3 form-check">
+					<input type="checkbox" class="form-check-input" id="privacyCheck" required>
+					<label class="form-check-label" for="privacyCheck">
+						Accetto l'informativa sulla privacy e il trattamento dei dati personali
+					</label>
+				</div>
+				<button type="submit" class="btn btn-primary w-100 mb-3" id="registerBtn" disabled>
 					<i class="fas fa-user-plus"></i> Registrati come utente
 				</button>
+
+				<script>
+					// Abilita il pulsante solo se la checkbox privacy è selezionata
+					const privacyCheck = document.getElementById('privacyCheck');
+					const registerBtn = document.getElementById('registerBtn');
+					if (privacyCheck && registerBtn) {
+						privacyCheck.addEventListener('change', function() {
+							registerBtn.disabled = !this.checked;
+						});
+						// Disabilita di default
+						registerBtn.disabled = !privacyCheck.checked;
+					}
+				</script>
 			</form>
 			<hr>
 			<div class="text-center">

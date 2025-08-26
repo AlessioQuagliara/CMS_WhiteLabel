@@ -226,13 +226,37 @@ router.get('/messages/conversation/:adminId', authenticateToken, async (req, res
 router.get('/events', authenticateToken, async (req, res) => {
   try {
     // Recupera eventi disponibili per l'utente (da implementare in Event.js)
-    const events = await Event.findAll ? await Event.findAll() : [];
+  // prendiamo l'azienda dell'utente e usiamo findVisibleEvents
+  const company = await Company.findByUserId(req.user.userId);
+  console.log('[user/events] userId=', req.user && req.user.userId, 'company=', company && company.id);
+    const page = parseInt(req.query.page || 1, 10);
+    const limit = parseInt(req.query.limit || 20, 10);
+    let events = [];
+    let pagination = { page, limit, total: 0, pages: 0 };
+    if (company) {
+      const result = await Event.findVisibleEvents(company.id, page, limit);
+      events = result.events || [];
+      pagination = result.pagination || pagination;
+    } else {
+      // fallback: mostra eventi pubblici (visibility_rules IS NULL) per utenti senza company
+      console.log('[user/events] no company found for user, loading public events');
+      const publicResult = await Event.findAll({ is_active: true, upcoming: true }, page, limit);
+      events = publicResult.events || [];
+      pagination = publicResult.pagination || pagination;
+    }
+  // ordina cronologicamente dal più recente al meno recente
+  events.sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
+
+  console.log('[user/events] found events count=', events.length);
+
     res.render('user/events', {
       title: 'Eventi',
       user: req.user,
       activePage: 'events',
       events,
-      layout: 'layouts/user-dashboard'
+      pagination,
+      layout: 'layouts/user-dashboard',
+      debug: req.query.debug === '1'
     });
   } catch (error) {
     console.error('Errore eventi user:', error);
@@ -242,6 +266,126 @@ router.get('/events', authenticateToken, async (req, res) => {
       activePage: 'events',
       layout: 'layouts/user-dashboard'
     });
+  }
+});
+
+// Dettaglio evento (JSON) per modal
+router.get('/events/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('[user/events/:id] req.user=', req.user, 'id=', id);
+    const event = await Event.findById(id);
+    console.log('[user/events/:id] event=', !!event);
+    if (!event) return res.status(404).json({ error: 'Evento non trovato' });
+
+    // verifica se l'utente può vederlo
+    const company = await Company.findByUserId(req.user.userId);
+    let canView = true;
+    if (company) {
+      canView = await Event.checkCompanyEligibility(event.id, company.id);
+    }
+
+    // verifica stato registrazione dell'utente per questo evento
+    const EventRegistration = require('../models/EventRegistration');
+    let registration = null;
+    try {
+      const reg = await EventRegistration.isUserRegistered(id, req.user.userId);
+      registration = reg ? reg.status : null;
+    } catch (e) {
+      console.warn('[user/events/:id] errore checking registration', e && e.message);
+    }
+
+    // calcola posti disponibili (null = senza limite)
+    let availableSpaces = null;
+    try {
+      availableSpaces = await Event.getAvailableSpaces(id);
+    } catch (e) {
+      console.warn('[user/events/:id] errore calcolo posti disponibili', e && e.message);
+    }
+
+  console.log('[user/events/:id] canView=', canView, 'registration=', registration, 'availableSpaces=', availableSpaces);
+  res.json({ event, canView, registration, availableSpaces });
+  } catch (error) {
+    console.error('Errore dettaglio evento:', error);
+    res.status(500).json({ error: 'Errore recupero evento' });
+  }
+});
+
+// Endpoint per generare file .ics (download calendar)
+router.get('/events/:id/calendar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const event = await Event.findById(id);
+    if (!event) return res.status(404).send('Evento non trovato');
+
+    function toICSDate(d) {
+      const date = new Date(d);
+      const YYYY = date.getUTCFullYear();
+      const MM = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const DD = String(date.getUTCDate()).padStart(2, '0');
+      const hh = String(date.getUTCHours()).padStart(2, '0');
+      const mm = String(date.getUTCMinutes()).padStart(2, '0');
+      const ss = String(date.getUTCSeconds()).padStart(2, '0');
+      return `${YYYY}${MM}${DD}T${hh}${mm}${ss}Z`;
+    }
+
+    const dtstamp = toICSDate(new Date());
+    const dtstart = toICSDate(event.event_date);
+    const dtend = event.end_date ? toICSDate(event.end_date) : dtstart;
+    const uid = `event-${event.id}@cmswhitelabel`;
+
+    const description = (event.description || '').replace(/\r?\n/g, '\\n');
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//CMS WhiteLabel//EN',
+      'CALSCALE:GREGORIAN',
+      'BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTAMP:${dtstamp}`,
+      `DTSTART:${dtstart}`,
+      `DTEND:${dtend}`,
+      `SUMMARY:${(event.title || '').replace(/([,;\\])/g,'')}`,
+      `DESCRIPTION:${description}`,
+      `LOCATION:${(event.location || '').replace(/([,;\\])/g,'')}`,
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="event-${event.id}.ics"`);
+    return res.send(ics);
+  } catch (error) {
+    console.error('Errore generazione .ics:', error);
+    return res.status(500).send('Errore generazione calendario');
+  }
+});
+
+// Registrazione evento da parte dell'utente
+router.post('/events/:id/register', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const company = await Company.findByUserId(userId);
+    if (!company) return res.status(400).json({ error: 'Nessuna azienda associata all\'utente' });
+
+    // verifica visibilità
+    const canView = await Event.checkCompanyEligibility(id, company.id);
+    if (!canView) return res.status(403).json({ error: 'Non autorizzato per registrarsi a questo evento' });
+
+    // crea registrazione
+    const EventRegistration = require('../models/EventRegistration');
+    const registration = await EventRegistration.create({
+      event_id: id,
+      user_id: userId,
+      company_id: company.id,
+      status: 'pending'
+    });
+
+    return res.status(201).json({ message: 'Registrazione creata', registration });
+  } catch (error) {
+    console.error('Errore registrazione evento:', error);
+    return res.status(500).json({ error: 'Errore durante la registrazione' });
   }
 });
 
@@ -474,3 +618,12 @@ router.post('/events/:eventId/register', authenticateToken, async (req, res) => 
 });
 
 module.exports = router;
+
+// Endpoint di debug (restituisce il payload del token dell'utente)
+router.get('/me', authenticateToken, (req, res) => {
+  try {
+    return res.json({ ok: true, user: req.user });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: String(err) });
+  }
+});

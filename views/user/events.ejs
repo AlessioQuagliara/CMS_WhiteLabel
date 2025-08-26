@@ -1,31 +1,216 @@
 <div class="container py-4">
-  <h1 class="h3 mb-4 fw-bold"><i class="fas fa-calendar-alt text-success me-2"></i>I tuoi Eventi</h1>
-  <div class="card border-0 shadow-sm">
-    <div class="card-body p-0">
-      <table class="table table-hover mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Nome Evento</th>
-            <th>Data</th>
-            <th>Stato</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <% if (events && events.length) { %>
-            <% events.forEach(function(event) { %>
-              <tr>
-                <td><%= event.name %></td>
-                <td><%= event.date %></td>
-                <td><span class="badge bg-<%= event.status === 'attivo' ? 'success' : 'secondary' %>"><%= event.status %></span></td>
-                <td><a href="/user/events/<%= event.id %>" class="btn btn-sm btn-outline-primary">Dettagli</a></td>
-              </tr>
-            <% }) %>
-          <% } else { %>
-            <tr><td colspan="4" class="text-muted text-center">Nessun evento trovato</td></tr>
-          <% } %>
-        </tbody>
-      </table>
+  <h1 class="h3 mb-4 fw-bold"><i class="fas fa-calendar-alt text-success me-2"></i>Tutti gli Eventi</h1>
+  <div class="row">
+    <% if (events && events.length) { %>
+      <% events.forEach(function(event) { %>
+        <div class="col-md-6 mb-3">
+          <div class="card h-100">
+            <div class="card-body d-flex flex-column">
+              <h5 class="card-title"><%= event.title %></h5>
+              <div class="mb-2">
+                <span class="event-registration-badge" data-id="<%= event.id %>"></span>
+              </div>
+              <p class="card-text text-muted mb-2"><small><i class="fas fa-calendar-alt"></i> <%= new Date(event.event_date).toLocaleString() %></small></p>
+              <p class="card-text flex-grow-1"><%= event.description ? (event.description.length > 140 ? event.description.substring(0,140) + '...' : event.description) : '' %></p>
+              <div class="d-flex justify-content-between align-items-center mt-3">
+                <span class="badge bg-<%= event.is_active ? 'success' : 'secondary' %>"><%= event.is_active ? 'Attivo' : 'Non attivo' %></span>
+                <div>
+                  <button class="btn btn-sm btn-outline-primary me-2 btn-event-details" data-id="<%= event.id %>">Dettagli</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    <% } else { %>
+      <div class="col-12"><div class="text-muted text-center">Nessun evento trovato</div></div>
+    <% } %>
+  </div>
+</div>
+
+<% if (typeof debug !== 'undefined' && debug) { %>
+  <div class="container mt-3">
+    <h6>Debug JSON ricevuto</h6>
+    <pre style="max-height:300px; overflow:auto; background:#f8f9fa; padding:10px;"><%= JSON.stringify({ events: events, pagination: pagination, user: user }, null, 2) %></pre>
+  </div>
+<% } %>
+
+<!-- Modal dettagli evento -->
+<div class="modal fade" id="eventDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="eventModalTitle">Dettaglio Evento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="eventModalBody">Caricamento...</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+        <button type="button" class="btn btn-primary" id="eventRegisterBtn" data-id="">Registrati</button>
+      </div>
     </div>
   </div>
 </div>
+
+<script>
+  (function(){
+    // Esegui solo dopo che il DOM è pronto e Bootstrap è caricato
+    function init() {
+      const detailButtons = document.querySelectorAll('.btn-event-details');
+      const modalEl = document.getElementById('eventDetailModal');
+      const modalBody = document.getElementById('eventModalBody');
+      const modalTitle = document.getElementById('eventModalTitle');
+      const registerBtn = document.getElementById('eventRegisterBtn');
+      let bsModal = null;
+      if (modalEl && window.bootstrap) bsModal = new bootstrap.Modal(modalEl);
+
+      // Carica badge di iscrizione per ogni card (mostra se l'utente è già iscritto)
+      async function loadCardBadges() {
+        const badgeEls = document.querySelectorAll('.event-registration-badge');
+        if (!badgeEls || !badgeEls.length) return;
+        badgeEls.forEach(async (el) => {
+          const id = el.dataset.id;
+          if (!id) return;
+          try {
+            const res = await fetch(`/events/${id}`, { credentials: 'same-origin' });
+            // se risponde HTML probabilmente siamo anonimi -> non mostrare badge
+            const ct = res.headers.get('content-type') || '';
+            if (ct.includes('text/html')) return;
+            if (!res.ok) return;
+            const json = await res.json();
+            const reg = json.registration || null;
+            const spaces = (typeof json.availableSpaces === 'number') ? json.availableSpaces : null;
+            // costruisci HTML del badge (stato iscrizione + posti)
+            let parts = [];
+            if (reg) {
+              const st = (reg || '').toLowerCase();
+              const cls = st === 'confirmed' ? 'badge bg-success' : (st === 'pending' ? 'badge bg-warning text-dark' : 'badge bg-secondary');
+              parts.push(`<span class="${cls} me-1">Iscritto: ${reg}</span>`);
+            }
+            if (spaces !== null) {
+              // evidenzia posti esauriti
+              const seatsCls = spaces > 0 ? 'badge bg-info text-dark' : 'badge bg-danger';
+              parts.push(`<span class="${seatsCls} me-1">Posti: ${spaces}</span>`);
+            }
+            if (parts.length) {
+              el.innerHTML = parts.join('');
+              // rendi il badge cliccabile per aprire il dettaglio
+              el.style.cursor = 'pointer';
+              el.addEventListener('click', () => {
+                try { openDetails(id); } catch (e) { /* ignore */ }
+              });
+            }
+          } catch (e) {
+            // fail silently
+          }
+        });
+      }
+
+      async function openDetails(id) {
+        modalTitle.textContent = 'Dettaglio Evento';
+        modalBody.innerHTML = 'Caricamento...';
+        if (registerBtn) registerBtn.dataset.id = id;
+        try {
+          const res = await fetch(`/events/${id}`, { credentials: 'same-origin' });
+          if (!res.ok) throw new Error('Impossibile recuperare i dettagli');
+          const json = await res.json();
+          const ev = json.event;
+          const canView = json.canView;
+          if (!canView) {
+            modalBody.innerHTML = '<div class="alert alert-warning">Non sei abilitato a vedere questo evento.</div>';
+            if (registerBtn) registerBtn.style.display = 'none';
+          } else {
+            if (registerBtn) registerBtn.style.display = 'inline-block';
+              const registeredStatus = (json.registration ? json.registration : null);
+              // badge colore in base allo stato
+              let statusBadge = '';
+              if (registeredStatus) {
+                const st = registeredStatus.toLowerCase();
+                const cls = st === 'confirmed' ? 'bg-success' : (st === 'pending' ? 'bg-warning text-dark' : 'bg-secondary');
+                statusBadge = `<span class="badge ${cls} me-2">Iscritto: ${registeredStatus}</span>`;
+              }
+              const html = `
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                  <div>
+                    <h5 class="mb-1">${ev.title || ''}</h5>
+                    <div class="small text-muted">${new Date(ev.event_date).toLocaleString()}${ev.end_date ? ' - ' + new Date(ev.end_date).toLocaleString() : ''} • ${ev.location || '—'}</div>
+                  </div>
+                  <div>
+                    ${statusBadge}
+                    <a class="btn btn-outline-secondary btn-sm me-1" href="/events/${ev.id}/calendar">Download .ics</a>
+                    <a class="btn btn-outline-info btn-sm" target="_blank" href="https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(ev.title||'')}&dates=${new Date(ev.event_date).toISOString().replace(/[-:.]/g,'').slice(0,15)}/${(ev.end_date?new Date(ev.end_date).toISOString().replace(/[-:.]/g,'').slice(0,15):new Date(ev.event_date).toISOString().replace(/[-:.]/g,'').slice(0,15))}&details=${encodeURIComponent(ev.description||'')}&location=${encodeURIComponent(ev.location||'')}">Apri in Google Calendar</a>
+                  </div>
+                </div>
+                <div class="mb-3">${ev.description || ''}</div>
+                <hr>
+                <div class="small text-muted">Creato da: ${ev.created_by_name || ev.created_by_email || '—'}</div>
+              `;
+              modalBody.innerHTML = html;
+              // Nascondi o disabilita il pulsante registrazione se già registrato
+              if (registerBtn) {
+                if (registeredStatus) {
+                  registerBtn.style.display = 'none';
+                  registerBtn.disabled = true;
+                } else {
+                  registerBtn.style.display = 'inline-block';
+                  registerBtn.disabled = false;
+                  registerBtn.textContent = 'Registrati';
+                }
+              }
+          }
+        } catch (err) {
+          let msg = 'Errore nel caricamento';
+          try {
+            // prova a leggere la risposta se presente
+            if (err && err.response) {
+              msg += ': ' + JSON.stringify(err.response);
+            }
+          } catch (e) {}
+          modalBody.innerHTML = `<div class="alert alert-danger">${msg}</div>`;
+        }
+        if (bsModal) bsModal.show();
+      }
+
+      detailButtons.forEach(btn => btn.addEventListener('click', () => openDetails(btn.dataset.id)));
+
+  // populate card badges after init
+  loadCardBadges();
+
+      if (registerBtn) {
+        registerBtn.addEventListener('click', async function() {
+          const id = this.dataset.id;
+          if (!id) return;
+          this.disabled = true;
+          try {
+            const res = await fetch(`/events/${id}/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: '{}' });
+            // se il server risponde con HTML (redirect al login), reindirizza il browser
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('text/html')) {
+              // probabilmente redirect al login
+              window.location.href = '/auth/login';
+              return;
+            }
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Errore registrazione');
+            // mostra conferma e chiudi modal
+            modalBody.innerHTML = '<div class="alert alert-success">Registrazione avvenuta</div>';
+            setTimeout(() => { if (bsModal) bsModal.hide(); }, 1200);
+          } catch (err) {
+            modalBody.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+          } finally { this.disabled = false; }
+        });
+      }
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      // assicurati che bootstrap sia disponibile
+      if (window.bootstrap) init(); else window.addEventListener('load', init);
+    } else {
+      document.addEventListener('DOMContentLoaded', function() {
+        if (window.bootstrap) init(); else window.addEventListener('load', init);
+      });
+    }
+  })();
+</script>

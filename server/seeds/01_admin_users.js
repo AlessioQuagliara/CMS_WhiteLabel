@@ -3,13 +3,13 @@ exports.seed = async function(knex) {
   // Elimina tutte le entry esistenti
   await knex('admin_users').del();
 
-  // Hash della password "Spotexsrl@2025"
+  // Hash della password
   const passwordHash = '$2b$10$wQwQwQwQwQwQwQwQwQwQwOQwQwQwQwQwQwQwQwQwQwQwQwQwQ'; // Sostituisci con hash reale in produzione
 
   // Inserisce la nuova entry admin
   await knex('admin_users').insert([
     {
-      email: 'info@spotexsrl.com',
+      email: 'info@spotexsrl.it',
       password: passwordHash,
   name: 'Alessio Quagliara',
       verified: true

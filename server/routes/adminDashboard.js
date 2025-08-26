@@ -168,12 +168,50 @@ router.get('/users', authenticateAdmin, async (req, res) => {
   try {
     // Prendi i dati dell'admin dalla sessione se disponibili
     const user = req.session && req.session.admin_user ? req.session.admin_user : req.user;
-    // Recupera elenco utenti (puoi personalizzare la query)
-    const users = await User.getAll ? await User.getAll() : [];
+    // Supporta paginazione con query params
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '20', 10);
+    // Recupera elenco utenti con company (left join) e supporto ricerca
+    const knexConfig = require('../../knexfile');
+    const knex = require('knex')(knexConfig[process.env.NODE_ENV || 'development']);
+    const offset = (page - 1) * limit;
+    const q = (req.query.q || '').trim();
+
+    // base select query
+    let selectQuery = knex('users as u')
+      .select('u.id', 'u.email', knex.raw("COALESCE(NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), ''), u.email) as name"), 'u.created_at', 'c.ragione_sociale as company')
+      .leftJoin('companies as c', 'c.user_id', 'u.id');
+
+    // base count query
+    let countQuery = knex('users as u').count('* as total');
+
+    if (q) {
+      const ilike = `%${q}%`;
+      selectQuery = selectQuery.where(function() {
+        this.where('u.email', 'ilike', ilike)
+          .orWhereRaw("COALESCE(u.first_name || ' ' || u.last_name, u.email) ILIKE ?", [ilike])
+          .orWhere('c.ragione_sociale', 'ilike', ilike);
+      });
+      countQuery = countQuery.where(function() {
+        this.where('u.email', 'ilike', ilike)
+          .orWhereRaw("COALESCE(u.first_name || ' ' || u.last_name, u.email) ILIKE ?", [ilike])
+          .orWhere('c.ragione_sociale', 'ilike', ilike);
+      }).leftJoin('companies as c', 'c.user_id', 'u.id');
+    } else {
+      // ensure same join for count when no filter
+      countQuery = countQuery.leftJoin('companies as c', 'c.user_id', 'u.id');
+    }
+
+    const users = await selectQuery.orderBy('u.created_at', 'desc').offset(offset).limit(limit);
+    const totalRow = await countQuery.first();
+    const totalUsers = totalRow ? parseInt(totalRow.total, 10) : 0;
+    const pagination = { page, limit, total: totalUsers, pages: Math.max(1, Math.ceil(totalUsers / limit)) };
     res.render('admin/users', {
       title: 'Gestione Utenti',
       user,
       users,
+  pagination,
+      q,
       activePage: 'users',
       layout: 'layouts/admin-dashboard'
     });
@@ -191,6 +229,11 @@ router.get('/messages', authenticateAdmin, async (req, res) => {
   // Prendi i dati dell'admin dalla sessione se disponibili
   const user = req.session && req.session.admin_user ? req.session.admin_user : req.user;
   try {
+    // Supporto ricerca + paginazione per lista utenti con conteggio messaggi
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '20', 10);
+    const q = (req.query.q || '').trim();
+
     // Mostra solo i messaggi tra admin e utenti (sia inviati che ricevuti)
     const filters = {
       or: [
@@ -200,10 +243,14 @@ router.get('/messages', authenticateAdmin, async (req, res) => {
     };
     const result = await Message.search(filters, 1, 100);
     const messages = result.messages;
+
     // Inoltre recupera tutti gli utenti con il conteggio dei messaggi (in/out)
     const knexConfig = require('../../knexfile');
     const knex = require('knex')(knexConfig[process.env.NODE_ENV || 'development']);
-    const usersWithCounts = await knex('users as u')
+    const offset = (page - 1) * limit;
+
+    // base queries
+    let selectQuery = knex('users as u')
       .select('u.id', 'u.first_name', 'u.last_name', 'u.email')
       .countDistinct('m.id as message_count')
       .leftJoin('messages as m', function() {
@@ -212,11 +259,32 @@ router.get('/messages', authenticateAdmin, async (req, res) => {
       .groupBy('u.id')
       .orderBy('u.created_at', 'desc');
 
+    let countQuery = knex('users as u');
+    if (q) {
+      const ilike = `%${q}%`;
+      selectQuery = selectQuery.where(function() {
+        this.where('u.email', 'ilike', ilike)
+          .orWhereRaw("COALESCE(u.first_name || ' ' || u.last_name, u.email) ILIKE ?", [ilike]);
+      });
+      countQuery = countQuery.where(function() {
+        this.where('u.email', 'ilike', ilike)
+          .orWhereRaw("COALESCE(u.first_name || ' ' || u.last_name, u.email) ILIKE ?", [ilike]);
+      });
+    }
+
+    const usersWithCounts = await selectQuery.offset(offset).limit(limit);
+    // total users matching filter
+    const totalRow = await countQuery.countDistinct('u.id as total').first();
+    const totalUsers = totalRow ? parseInt(totalRow.total, 10) : 0;
+    const pagination = { page, limit, total: totalUsers, pages: Math.max(1, Math.ceil(totalUsers / limit)) };
+
     res.render('admin/messages', {
       title: 'Gestione Messaggi',
       user,
       messages,
       usersWithCounts,
+      pagination,
+      q,
       activePage: 'messages',
       layout: 'layouts/admin-dashboard'
     });
@@ -226,6 +294,89 @@ router.get('/messages', authenticateAdmin, async (req, res) => {
       title: 'Errore',
       error: 'Errore durante il recupero dei messaggi'
     });
+  }
+});
+
+// Visualizza dettagli utente (readonly)
+router.get('/users/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const knexConfig = require('../../knexfile');
+    const knex = require('knex')(knexConfig[process.env.NODE_ENV || 'development']);
+    const user = await knex('users as u')
+      .select('u.id', 'u.email', 'u.first_name', 'u.last_name', 'u.phone', 'u.created_at', 'c.*')
+      .leftJoin('companies as c', 'c.user_id', 'u.id')
+      .where('u.id', id)
+      .first();
+    if (!user) return res.status(404).render('error', { title: 'Non trovato', error: 'Utente non trovato' });
+    res.render('admin/user-detail', { title: 'Dettaglio Utente', user, activePage: 'users', layout: 'layouts/admin-dashboard' });
+  } catch (err) {
+    console.error('Errore recupero dettaglio utente:', err);
+    return res.status(500).render('error', { title: 'Errore', error: 'Errore durante il recupero dell\'utente' });
+  }
+});
+
+// Cancella utente (API)
+router.delete('/users/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const knexConfig = require('../../knexfile');
+    const knex = require('knex')(knexConfig[process.env.NODE_ENV || 'development']);
+    // trova company associata (se presente)
+    const company = await knex('companies').where({ user_id: id }).first();
+    const companyId = company ? company.id : null;
+
+    // elimina registrazioni eventi legate all'utente o alla company
+    try {
+      await knex('event_registrations').where(function() {
+        this.where('user_id', id);
+        if (companyId) this.orWhere('company_id', companyId);
+      }).del();
+    } catch (e) {
+      console.warn('Errore cancellazione event_registrations per utente', id, e && e.message);
+    }
+
+    // elimina messaggi inviati/ricevuti dall'utente
+    try {
+      await knex('messages').where(function() {
+        this.where('from_user_id', id).orWhere('to_user_id', id);
+      }).del();
+    } catch (e) {
+      console.warn('Errore cancellazione messages per utente', id, e && e.message);
+    }
+
+    // elimina company associata e poi l'utente
+    try {
+      await knex('companies').where({ user_id: id }).del();
+    } catch (e) {
+      console.warn('Errore cancellazione company per utente', id, e && e.message);
+    }
+
+    const deleted = await knex('users').where({ id }).del().returning('id');
+    if (!deleted || deleted.length === 0) return res.status(404).json({ error: 'not_found' });
+
+    // elimina token di password reset per l'utente
+    try {
+      await knex('password_resets').where({ user_id: id }).del();
+    } catch (e) {
+      console.warn('Errore cancellazione password_resets per utente', id, e && e.message);
+    }
+
+    // elimina visite (visit logs) legate all'utente
+    try {
+      await knex('visits').where(function() { this.where('user_id', id).orWhere('ip', req.ip); }).del();
+    } catch (e) {
+      console.warn('Errore cancellazione visits per utente', id, e && e.message);
+    }
+
+    // imposta flash in sessione per messaggio lato client
+    if (req.session) req.session.flash = { success: encodeURIComponent('Utente eliminato') };
+
+    if (req.accepts('html')) return res.redirect('/admin/users');
+    return res.json({ message: 'Utente eliminato' });
+  } catch (err) {
+    console.error('Errore cancellazione utente:', err);
+    return res.status(500).json({ error: 'Errore cancellazione utente' });
   }
 });
 
@@ -389,13 +540,49 @@ router.get('/events', authenticateAdmin, async (req, res) => {
   try {
     const page = parseInt(req.query.page || '1', 10);
     const limit = parseInt(req.query.limit || '20', 10);
-    const result = await Event.findAll({}, page, limit);
-    const events = result.events || [];
-    res.render('admin/events', {
+    const q = (req.query.q || '').trim();
+
+    // if q is present, apply simple title/description/location search
+    const filters = {};
+    if (!q) {
+      const result = await Event.findAll({}, page, limit);
+      const events = result.events || [];
+      return res.render('admin/events', {
+        title: 'Eventi',
+        user: req.session && req.session.admin_user ? req.session.admin_user : req.user,
+        events,
+        pagination: result.pagination,
+        q,
+        activePage: 'events',
+        layout: 'layouts/admin-dashboard'
+      });
+    }
+
+    // custom search using knex for free text
+    const knexConfig = require('../../knexfile');
+    const knex = require('knex')(knexConfig[process.env.NODE_ENV || 'development']);
+    const offset = (page - 1) * limit;
+    const ilike = `%${q}%`;
+    const base = knex('events as e')
+      .select('e.*', 'au.email as created_by_email', 'au.name as created_by_name')
+      .leftJoin('admin_users as au', 'e.created_by', 'au.id')
+      .where(function() {
+        this.where('e.title', 'ilike', ilike)
+          .orWhere('e.description', 'ilike', ilike)
+          .orWhere('e.location', 'ilike', ilike);
+      });
+
+    const events = await base.clone().orderBy('e.event_date', 'desc').offset(offset).limit(limit);
+    const totalRow = await base.clone().clearSelect().count('* as total').first();
+    const total = totalRow ? parseInt(totalRow.total, 10) : 0;
+    const pagination = { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) };
+
+    return res.render('admin/events', {
       title: 'Eventi',
       user: req.session && req.session.admin_user ? req.session.admin_user : req.user,
       events,
-      pagination: result.pagination,
+      pagination,
+      q,
       activePage: 'events',
       layout: 'layouts/admin-dashboard'
     });
@@ -526,6 +713,25 @@ router.delete('/events/:id', authenticateAdmin, async (req, res) => {
     console.error('Errore eliminazione evento:', err);
     if (req.accepts('html')) return res.status(500).render('error', { title: 'Errore', error: 'Errore durante l\'eliminazione' });
     return res.status(500).json({ error: 'Errore eliminazione' });
+  }
+});
+
+// Lista iscrizioni per evento (admin JSON)
+router.get('/events/:id/registrations', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const knexConfig = require('../../knexfile');
+    const knex = require('knex')(knexConfig[process.env.NODE_ENV || 'development']);
+    const regs = await knex('event_registrations as er')
+      .select('er.id', 'er.status', 'er.created_at', 'u.first_name', 'u.last_name', 'u.email', 'c.ragione_sociale as company')
+      .leftJoin('users as u', 'er.user_id', 'u.id')
+      .leftJoin('companies as c', 'er.company_id', 'c.id')
+      .where('er.event_id', id)
+      .orderBy('er.created_at', 'asc');
+    return res.json({ registrations: regs });
+  } catch (err) {
+    console.error('Errore recupero iscrizioni evento:', err);
+    return res.status(500).json({ error: 'Errore recupero iscrizioni' });
   }
 });
 

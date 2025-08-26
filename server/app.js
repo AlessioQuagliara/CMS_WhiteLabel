@@ -7,6 +7,9 @@ const expressLayouts = require('express-ejs-layouts');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 
+// Middleware per supportare PUT/DELETE nei form HTML
+const methodOverride = require('method-override');
+
 // Inizializza l'app Express
 const app = express();
 
@@ -43,6 +46,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Abilita l'override del metodo tramite query _method (necessario per i form che fanno PUT/DELETE)
+app.use(methodOverride('_method'));
 
 // Middleware per debug
 app.use((req, res, next) => {

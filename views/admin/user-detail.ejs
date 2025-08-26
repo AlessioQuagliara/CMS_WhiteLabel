@@ -1,0 +1,64 @@
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3">Dettaglio Utente</h1>
+  <a href="/admin/users" class="btn btn-sm btn-outline-secondary">← Torna alla lista</a>
+</div>
+<div class="card">
+  <div class="card-body">
+    <h5>Dati Utente</h5>
+    <dl class="row">
+      <dt class="col-sm-3">ID</dt><dd class="col-sm-9"><%= user.id %></dd>
+      <dt class="col-sm-3">Email</dt><dd class="col-sm-9"><%= user.email %></dd>
+      <dt class="col-sm-3">Nome</dt><dd class="col-sm-9"><%= (user.first_name || user.last_name) ? ((user.first_name||'') + ' ' + (user.last_name||'')).trim() : (user.name || '-') %></dd>
+      <dt class="col-sm-3">Telefono</dt><dd class="col-sm-9"><%= user.phone || '-' %></dd>
+      <dt class="col-sm-3">Registrato il</dt><dd class="col-sm-9"><%= user.created_at ? user.created_at.toLocaleString() : '-' %></dd>
+    </dl>
+    <hr>
+    <h5>Company associata</h5>
+    <% if (user && user.user_id) { %>
+      <dl class="row">
+        <dt class="col-sm-3">Ragione sociale</dt><dd class="col-sm-9"><%= user.ragione_sociale || '-' %></dd>
+        <dt class="col-sm-3">Campo attività</dt><dd class="col-sm-9"><%= user.campo_attivita || '-' %></dd>
+        <dt class="col-sm-3">Fatturato</dt><dd class="col-sm-9"><%= user.fatturato || '-' %></dd>
+        <dt class="col-sm-3">Provincia</dt><dd class="col-sm-9"><%= user.provincia || '-' %></dd>
+        <dt class="col-sm-3">Nazione</dt><dd class="col-sm-9"><%= user.nazione || '-' %></dd>
+      </dl>
+    <% } else { %>
+      <div class="text-muted">Nessuna company associata</div>
+    <% } %>
+    <hr>
+       <form action="/admin/users/<%= user.id %>?_method=DELETE" method="post" class="user-delete-detail-form">
+         <button type="button" class="btn btn-danger btn-user-delete-detail">Elimina utente</button>
+       </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    try {
+      if (typeof Swal === 'undefined') {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js';
+        s.async = true;
+        document.head.appendChild(s);
+      }
+      function attach() {
+        const btn = document.querySelector('.btn-user-delete-detail');
+        const form = document.querySelector('.user-delete-detail-form');
+        if (!btn || !form) return;
+        btn.addEventListener('click', function () {
+          if (!window.Swal) return form.submit();
+          Swal.fire({
+            title: 'Confermi eliminazione?',
+            text: 'Questa azione è irreversibile',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Elimina',
+            cancelButtonText: 'Annulla'
+          }).then(r => { if (r.isConfirmed) form.submit(); });
+        });
+      }
+      function wait() { if (window.Swal) return attach(); setTimeout(wait, 150); }
+      wait();
+    } catch (e) { console.warn('user-detail swal attach', e); }
+  })();
+</script>

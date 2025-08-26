@@ -1,0 +1,39 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.*
+
+# Local system files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output
+dist/
+build/
+
+# Runtime files
+pids/
+*.pid
+*.seed
+
+# npm
+package-lock.json
+
+# VSCode
+.vscode/
+
+# Shell scripts
+install.sh
+
+# local server runtime
+server.log
+server.pid

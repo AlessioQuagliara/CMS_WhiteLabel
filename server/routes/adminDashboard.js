@@ -431,6 +431,7 @@ router.post('/messages/send', authenticateAdmin, async (req, res) => {
         const room = `user_${toUserId}`;
         console.log(`Server emitting message:receive to ${room}`);
         io.to(room).emit('message:receive', {
+          fromType: 'admin',
           fromId: senderAdminId,
           message,
           name: msg.name,

@@ -1,0 +1,29 @@
+
+> CMS White Label@1.0.0 start
+> node server/app.js
+
+🔄 Verifica stato database...
+✅ Database già inizializzato
+
+✅ Server avviato su http://localhost:3000
+📧 Mittente SMTP: piattaforma@spotexsrl.com
+🗄️ Database: node_app
+👤 Utente DB: root
+🌐 Ambiente: development
+👁️ View Engine: EJS
+🟢 Socket.IO attivo
+🟢 Nuova connessione socket: hiJh6kDzzT8HKOgOAAAC
+🟢 Nuova connessione socket: OCp6z__MYUCUsWSEAAAD
+Utente 2 si è unito alla room user_2
+Admin 2 si è unito alla room admin_2
+Socket forward to user_2 | exists=true | size=1
+🔴 Disconnessione socket: hiJh6kDzzT8HKOgOAAAC
+🔴 Disconnessione socket: OCp6z__MYUCUsWSEAAAD
+🟢 Nuova connessione socket: 17OvFT8FYLajP5WPAAAG
+🟢 Nuova connessione socket: zdoNzKlR9AaSiK1FAAAH
+Utente 2 si è unito alla room user_2
+Admin 2 si è unito alla room admin_2
+Socket forward to user_2 | exists=true | size=1
+Socket forward to admin_2 | exists=true | size=1
+🔴 Disconnessione socket: 17OvFT8FYLajP5WPAAAG
+🔴 Disconnessione socket: zdoNzKlR9AaSiK1FAAAH

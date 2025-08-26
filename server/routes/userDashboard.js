@@ -167,11 +167,12 @@ router.post('/messages/send', authenticateToken, async (req, res) => {
     const io = req.app.get('io');
     if (io) {
         io.to(`admin_${toAdminId}`).emit('message:receive', {
-        fromId: currentUserId,
-        message: message,
-        name: dbUser ? ((dbUser.first_name || dbUser.name) || dbUser.email) : 'User',
-        email: dbUser ? dbUser.email : null,
-        created_at: msg.created_at
+    fromType: 'user',
+    fromId: currentUserId,
+    message: message,
+    name: dbUser ? ((dbUser.first_name || dbUser.name) || dbUser.email) : 'User',
+    email: dbUser ? dbUser.email : null,
+    created_at: msg.created_at
       });
       try {
           const knexConfig = require('../../knexfile');

@@ -1,15 +1,10 @@
 <div class="container py-4">
   <h1 class="h3 mb-4 fw-bold"><i class="fas fa-envelope text-primary me-2"></i>Messaggi</h1>
-  
+
   <div id="chatBox" class="chat-box mb-0">
     <% if (messages && messages.length) { %>
       <% messages.forEach(function(msg) { %>
-        <% 
-        // LOGICA CORRETTA: 
-        // Se il messaggio ha from_user_id E coincide con il mio user ID → è mio
-        // Altrimenti è dell'admin (from_admin_id)
-        const isMine = user && msg.from_user_id && (msg.from_user_id.toString() === user.userId.toString());
-        %>
+        <% const isMine = user && msg.from_user_id && (msg.from_user_id.toString() === user.userId.toString()); %>
         <div class="chat-row <%= isMine ? 'mine' : 'theirs' %>">
           <div class="bubble">
             <div class="bubble-header">
@@ -24,204 +19,91 @@
       <div class="text-muted text-center">Nessun messaggio</div>
     <% } %>
   </div>
-  
-  <form id="newMessageForm" class="chat-input-row mt-0">
+
+  <form id="newMessageForm" class="chat-input-row mt-3">
     <input type="text" id="messageInput" placeholder="Scrivi un messaggio..." autocomplete="off" required>
-    <button type="submit"><i class="fas fa-paper-plane"></i> Invia</button>
+    <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Invia</button>
   </form>
-</div>
 
-<style>
-  .chat-box {
-    background: #f7f7f7;
-    border-radius: 10px 10px 0 0;
-    padding: 20px 10px 10px 10px;
-    max-height: 400px;
-    overflow-y: auto;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    margin-bottom: 0;
-  }
-  .chat-input-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #fff;
-    border-radius: 0 0 10px 10px;
-    padding: 10px 10px 10px 10px;
-    box-shadow: 0 -1px 4px rgba(0,0,0,0.03);
-  }
-  .chat-input-row input[type="text"] {
-    flex: 1;
-    border-radius: 20px;
-    border: 1px solid #ccc;
-    padding: 8px 16px;
-    font-size: 1em;
-    outline: none;
-  }
-  .chat-input-row button {
-    border-radius: 20px;
-    border: none;
-    background: #0d6efd;
-    color: #fff;
-    padding: 8px 20px;
-    font-size: 1em;
-    transition: background 0.2s;
-  }
-  .chat-input-row button:hover {
-    background: #0b5ed7;
-  }
-  .chat-row {
-    display: flex;
-    margin-bottom: 10px;
-  }
-  .chat-row.mine {
-    justify-content: flex-end;
-  }
-  .chat-row.theirs {
-    justify-content: flex-start;
-  }
-  .bubble {
-    max-width: 70%;
-    background: #e1ffc7;
-    border-radius: 18px;
-    padding: 10px 14px;
-    position: relative;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.07);
-    word-break: break-word;
-  }
-  .chat-row.mine .bubble {
-    background: #d1e7ff;
-    color: #0d6efd;
-    align-items: flex-end;
-  }
-  .bubble-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.85em;
-    margin-bottom: 2px;
-    opacity: 0.7;
-  }
-  .bubble-body {
-    font-size: 1.05em;
-  }
-</style>
+  <style>
+    .chat-box { background: #f7f7f7; border-radius: 10px 10px 0 0; padding: 20px 10px 10px 10px; max-height: 400px; overflow-y: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 0; }
+    .chat-input-row { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 0 0 10px 10px; padding: 10px; box-shadow: 0 -1px 4px rgba(0,0,0,0.03); }
+    .chat-input-row input[type="text"] { flex: 1; border-radius: 20px; border: 1px solid #ccc; padding: 8px 16px; font-size: 1em; outline: none; }
+    .chat-input-row button { border-radius: 20px; border: none; background: #0d6efd; color: #fff; padding: 8px 16px; font-size: 1em; transition: background 0.2s; }
+    .chat-input-row button:hover { background: #0b5ed7; }
+    .chat-row { display: flex; margin-bottom: 10px; }
+    .chat-row.mine { justify-content: flex-end; }
+    .chat-row.theirs { justify-content: flex-start; }
+    .bubble { max-width: 70%; background: #e1ffc7; border-radius: 18px; padding: 10px 14px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.07); word-break: break-word; }
+    .chat-row.mine .bubble { background: #d1e7ff; color: #0d6efd; }
+    .bubble-header { display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 2px; opacity: 0.7; }
+    .bubble-body { font-size: 1.05em; }
+  </style>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-  const adminId = '<%= adminId || "1" %>';
-  const userId = "<%= user && user.userId ? user.userId : '' %>";
-  const userName = "<%= user && user.name ? user.name : '' %>";
-  const userEmail = "<%= user && user.email ? user.email : '' %>";
-  
-  const socket = io();
-  socket.on('connect', () => {
-    socket.emit('identify', { type: 'user', id: userId });
-  });
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script>
+    (function(){
+      const adminId = '<%= adminId || "1" %>';
+      const userId = "<%= user && user.userId ? user.userId : '' %>";
+      const userName = "<%= user && user.name ? user.name : '' %>";
+      const userEmail = "<%= user && user.email ? user.email : '' %>";
 
-  // Scroll in fondo alla chat
-  function scrollChatBottom() {
-    const chatBox = document.getElementById('chatBox');
-    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-  }
-  scrollChatBottom();
-
-  // Invio messaggio - CORRETTO
-  document.getElementById('newMessageForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const input = document.getElementById('messageInput');
-    const message = input.value.trim();
-    if (!message) return;
-    
-    // Aggiungi subito il messaggio in chat (UX istantanea)
-    addMessageToChat({
-      message: message,
-      created_at: new Date(),
-      mine: true
-    });
-    
-    input.value = '';
-    scrollChatBottom();
-    
-  try {
-  // PRIMA salva su backend, POI invia via socket
-  const response = await fetch('/messages/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toAdminId: adminId, message: message })
+      const socket = io();
+      socket.on('connect', () => {
+        socket.emit('identify', { type: 'user', id: userId });
       });
-      
-      const result = await response.json();
-      
-        if (response.ok) {
-        // Non emettiamo un secondo evento via socket: il server emette già `message:receive`
-        // dopo aver salvato il messaggio. Qui limitiamoci ad aggiornare l'UI localmente.
-      } else {
-        console.error('Errore dal server:', result.error);
-        if (result && result.error === 'session_expired') {
-          Swal.fire({
-            icon: 'warning',
-            title: 'Sessione scaduta',
-            text: result.message || 'La sessione è scaduta. Effettua il login per continuare.',
-            confirmButtonText: 'Accedi'
-          }).then(() => window.location.href = '/auth/login');
-          return;
+
+      function scrollChatBottom() { const chatBox = document.getElementById('chatBox'); if (chatBox) chatBox.scrollTop = chatBox.scrollHeight; }
+      scrollChatBottom();
+
+      document.getElementById('newMessageForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+        if (!message) return;
+
+        addMessageToChat({ message, created_at: new Date(), mine: true });
+        input.value = '';
+        scrollChatBottom();
+
+        try {
+          const response = await fetch('/messages/send', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ toAdminId: adminId, message })
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            if (result && result.error === 'session_expired') {
+              return Swal.fire({ icon: 'warning', title: 'Sessione scaduta', text: result.message || 'La sessione è scaduta. Effettua il login.', confirmButtonText: 'Accedi' }).then(() => window.location.href = '/auth/login');
+            }
+            Swal.fire({ icon: 'error', title: 'Errore', text: result.error || 'Errore durante l\'invio del messaggio' });
+          }
+        } catch (err) {
+          console.error('Errore:', err);
+          Swal.fire({ icon: 'error', title: 'Errore di connessione', text: 'Errore di connessione durante l\'invio del messaggio.' });
         }
-        Swal.fire({ icon: 'error', title: 'Errore', text: result.error || 'Errore durante l\'invio del messaggio' });
+      });
+
+      socket.on('message:receive', function(data) {
+        const isMine = (data.fromType === 'user' && data.fromId && userId && (data.fromId.toString() === userId.toString())) || (data.fromType === undefined && data.fromId && userId && (data.fromId.toString() === userId.toString()));
+        addMessageToChat({ message: data.message, created_at: data.created_at || new Date(), mine: isMine, senderName: data.name || (isMine ? 'Tu' : 'Admin') });
+        scrollChatBottom();
+        const sender = data.name || 'Admin';
+        Swal.fire({ toast: true, position: 'top-end', showConfirmButton: false, timer: 4000, icon: 'info', title: `Nuovo messaggio da ${sender}`, text: data.message });
+      });
+
+      function addMessageToChat(msg) {
+        const chatBox = document.getElementById('chatBox');
+        if (!chatBox) return;
+        const noMessages = chatBox.querySelector('.text-muted.text-center'); if (noMessages) chatBox.removeChild(noMessages);
+        const row = document.createElement('div'); row.className = 'chat-row ' + (msg.mine ? 'mine' : 'theirs');
+        row.innerHTML = `<div class="bubble"><div class="bubble-header"><span class="bubble-name">${msg.mine ? 'Tu' : (msg.senderName || 'Admin')}</span><span class="bubble-time">${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></div><div class="bubble-body">${escapeHtml(msg.message)}</div></div>`;
+        chatBox.appendChild(row);
       }
-    } catch (error) {
-      console.error('Errore durante il salvataggio del messaggio:', error);
-      alert('Errore di connessione durante l\'invio del messaggio.');
-    }
-  });
 
-  // Ricezione messaggio in tempo reale - CORRETTO
-  socket.on('message:receive', function(data) {
-    // Usa === per confronto stretto e .toString() per sicurezza
-    const isMine = data.fromId && userId && (data.fromId.toString() === userId.toString());
-    addMessageToChat({
-      message: data.message,
-      created_at: data.created_at || new Date(),
-      mine: isMine,
-      senderName: data.name || (isMine ? 'Tu' : 'Admin')
-    });
-    scrollChatBottom();
-    // show toast
-    const sender = data.name || 'Admin';
-    Swal.fire({
-      toast: true,
-      position: 'top-end',
-      showConfirmButton: false,
-      timer: 4000,
-      icon: 'info',
-      title: `Nuovo messaggio da ${sender}`,
-      text: data.message
-    });
-  });
-
-  // Funzione per aggiungere un messaggio in chat
-  function addMessageToChat(msg) {
-    const chatBox = document.getElementById('chatBox');
-    
-    // Rimuovi il placeholder "nessun messaggio" se presente
-    const noMessages = chatBox.querySelector('.text-muted.text-center');
-    if (noMessages) {
-      chatBox.removeChild(noMessages);
-    }
-    
-    const row = document.createElement('div');
-    row.className = 'chat-row ' + (msg.mine ? 'mine' : 'theirs');
-    row.innerHTML = `
-      <div class="bubble">
-        <div class="bubble-header">
-          <span class="bubble-name">${msg.mine ? 'Tu' : (msg.senderName || 'Admin')}</span>
-          <span class="bubble-time">${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-        </div>
-        <div class="bubble-body">${msg.message}</div>
-      </div>
-    `;
-    chatBox.appendChild(row);
-  }
-
-  // debug rimosso
-</script>
+      // minimal escape to avoid breaking markup
+      function escapeHtml(str) { if (!str && str !== 0) return ''; return String(str).replace(/[&<>"']/g, function(s){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[s]; }); }
+    })();
+  </script>
+</div>

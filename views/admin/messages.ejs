@@ -241,10 +241,10 @@
 			if (btn) {
 				// Aggiorna il testo del bottone (conteggio incrementale visivo)
 				const tr = btn.closest('tr');
-				const countCell = tr.children[7];
-				const current = parseInt(countCell.innerText || '0', 10);
-				countCell.innerText = current + 1;
-				btn.innerText = `Apri Chat (${current + 1})`;
+					const countCell = tr.children[3];
+					const current = parseInt(countCell.innerText || '0', 10);
+					countCell.innerText = current + 1;
+					btn.innerText = `Apri Chat (${current + 1})`;
 				// add highlight class
 				const rowEl = tr;
 				rowEl.classList.remove('row-new');
@@ -253,7 +253,7 @@
 				rowEl.classList.add('row-new');
 				// Se la chat è aperta con questo utente, appendi il messaggio
 				const modalEl = document.getElementById('chatModal');
-				if (modalEl.dataset.targetUser && modalEl.dataset.targetUser.toString() === fromId) {
+				if (modalEl.dataset.targetUser && modalEl.dataset.targetUser.toString() === fromId && data.fromType === 'user') {
 					const chatMessages = document.getElementById('chatMessages');
 					const div = document.createElement('div');
 					div.style.marginBottom = '8px';
@@ -278,7 +278,7 @@
 			const btn = tbody.querySelector(`button[data-userid='${userId}']`);
 			if (btn) {
 				const tr = btn.closest('tr');
-				tr.children[7].innerText = payload.message_count || 0;
+				tr.children[3].innerText = payload.message_count || 0;
 				btn.innerText = `Apri Chat (${payload.message_count || 0})`;
 				tr.classList.remove('row-new'); void tr.offsetWidth; tr.classList.add('row-new');
 			} else {

@@ -202,7 +202,7 @@ async function startServer() {
           }
 
           // Inoltra il messaggio alla room appropriata: usa io.to(...) per includere anche eventuale mittente connesso
-          const payload = { fromId, message, name, email, created_at: new Date() };
+          const payload = { fromType: fromType || null, fromId, message, name, email, created_at: new Date() };
           if (toType === 'admin') {
             const roomName = `admin_${toId}`;
             const room = io.sockets.adapter.rooms.get(roomName);

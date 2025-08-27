@@ -1,7 +1,8 @@
-const express = require('express');
 const path = require('path');
-const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+const express = require('express');
+const bodyParser = require('body-parser');
 const cors = require('cors');
 const expressLayouts = require('express-ejs-layouts');
 const session = require('express-session');

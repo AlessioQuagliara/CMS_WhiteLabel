@@ -231,6 +231,40 @@ else
     fi
 fi
 
+# Crea ecosystem.config.js
+echo "📝 Creazione file ecosystem.config.js"
+
+cat > ecosystem.config.js << EOF
+module.exports = {
+  apps: [{
+    name: '${DB_NAME}_app',
+    script: './server/app.js',
+    cwd: '$(pwd)',
+    instances: process.env.NODE_ENV === 'production' ? 2 : 1,
+    exec_mode: 'cluster',
+    autorestart: true,
+    watch: false,
+    max_memory_restart: '1G',
+    env: {
+      NODE_ENV: 'development',
+      PORT: $APP_PORT
+    },
+    env_production: {
+      NODE_ENV: 'production',
+      PORT: $APP_PORT
+    },
+    error_file: './logs/err.log',
+    out_file: './logs/out.log',
+    log_file: './logs/combined.log',
+    time: true
+  }]
+};
+EOF
+
+# Crea la directory per i log
+mkdir -p logs
+
+echo "✅ File ecosystem.config.js creato"
 echo ""
 echo "🎉 Configurazione completata!"
 echo "============================="

@@ -60,20 +60,30 @@ echo "----------------------------------------"
 read -p "Nome del database (default: myapp_db): " DB_NAME
 DB_NAME=${DB_NAME:-myapp_db}
 
-read -p "Utente del database (default: myapp_user): " DB_USER
-DB_USER=${DB_USER:-myapp_user}
-
-read -s -p "Password del database (default: myapp_password_123): " DB_PASSWORD
-DB_PASSWORD=${DB_PASSWORD:-myapp_password_123}
-echo ""
-
-read -p "Host del database (default: localhost): " DB_HOST
-DB_HOST=${DB_HOST:-localhost}
-
-read -p "Porta del database (default: 5432): " DB_PORT
-DB_PORT=${DB_PORT:-5432}
+# Valori fissi per le connessioni al database
+DB_USER="spotex"
+DB_PASSWORD="spotex"
+DB_HOST="localhost"
+DB_PORT="5432"
 
 read -p "Dominio per l'applicazione (es. miosito.it): " DOMAIN
+
+# Configurazione SMTP personalizzabile
+echo ""
+echo "Configurazione SMTP:"
+read -p "SMTP Host (default: smtps.aruba.it): " SMTP_HOST
+SMTP_HOST=${SMTP_HOST:-smtps.aruba.it}
+
+read -p "SMTP Port (default: 465): " SMTP_PORT
+SMTP_PORT=${SMTP_PORT:-465}
+
+read -p "SMTP Secure (true/false, default: true): " SMTP_SECURE
+SMTP_SECURE=${SMTP_SECURE:-true}
+
+read -p "SMTP User: " SMTP_USER
+
+read -s -p "SMTP Password: " SMTP_PASS
+echo ""
 
 # Se non è produzione, chiedi la porta, altrimenti usa quella standard
 if [ "$NODE_ENV" = "development" ]; then
@@ -91,23 +101,19 @@ else
     FRONTEND_URL="https://$DOMAIN"
 fi
 
-# Configurazione SMTP
-SMTP_HOST="smtps.aruba.it"
-SMTP_PORT="465"
-SMTP_SECURE="true"
-SMTP_USER="piattaforma@spotexsrl.com"
-SMTP_PASS="Spotexsrl@2025"
-
-# Crea il file .env
+# Crea il file .env in una directory con permessi di scrittura
 echo ""
 echo "📝 Creazione file .env"
-cat > .env << EOF
+ENV_FILE="/tmp/.env_$(date +%s)"
+
+cat > "$ENV_FILE" << EOF
 # Database
 DB_HOST=$DB_HOST
 DB_PORT=$DB_PORT
 DB_NAME=$DB_NAME
 DB_USER=$DB_USER
 DB_PASSWORD=$DB_PASSWORD
+DATABASE_URL=postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME
 
 # JWT Secrets
 JWT_SECRET=$(openssl rand -hex 32)
@@ -132,6 +138,10 @@ BASE_URL=$BASE_URL
 FRONTEND_URL=$FRONTEND_URL
 EOF
 
+# Sposta il file .env nella directory corrente con i permessi corretti
+sudo mv "$ENV_FILE" .env
+sudo chown $USER:$(id -gn) .env
+
 echo "✅ File .env creato con successo"
 
 # Carica le variabili d'ambiente
@@ -142,57 +152,21 @@ set +a
 # Crea il database e l'utente
 echo "🗄️ Creazione database e utente"
 
-# Crea l'utente e il database usando l'utente corrente
-psql << EOF
-DO \$\$
-BEGIN
-    -- Crea l'utente se non esiste
-    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$DB_USER') THEN
-        CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';
-        RAISE NOTICE 'Utente $DB_USER creato';
-    ELSE
-        RAISE NOTICE 'Utente $DB_USER già esistente';
-    END IF;
-    
-    -- Crea il database se non esiste
-    IF NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME') THEN
-        CREATE DATABASE $DB_NAME OWNER $DB_USER;
-        RAISE NOTICE 'Database $DB_NAME creato';
-    ELSE
-        RAISE NOTICE 'Database $DB_NAME già esistente';
-    END IF;
-    
-    -- Concedi tutti i privilegi all'utente sul database
-    GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
-END
-\$\$;
-EOF
+# Crea l'utente se non esiste già
+sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>/dev/null || echo "Utente già esistente o errore"
 
-if [ $? -eq 0 ]; then
-    echo "✅ Database e utente creati/verificati con successo"
+# Crea il database
+sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;" 2>/dev/null || echo "Database già esistente o errore"
+
+# Concedi privilegi
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
+
+# Verifica che il database sia accessibile
+if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "\q"; then
+    echo "✅ Connessione al database riuscita"
 else
-    echo "❌ Errore nella creazione del database/utente."
-    echo "Assicurati di:"
-    echo "   1. Avere PostgreSQL avviato"
-    echo "   2. Avere i permessi necessari per creare database"
-    echo "   3. Avere un utente PostgreSQL valido per la connessione"
-    
-    # Tentativo alternativo: crea database e utente con comandi separati
-    echo "🔄 Tentativo alternativo di creazione database..."
-    
-    # Crea l'utente
-    createuser --createdb --createrole --login --pwprompt $DB_USER || echo "Utente già esistente o errore"
-    
-    # Crea il database
-    createdb -O $DB_USER $DB_NAME || echo "Database già esistente o errore"
-    
-    # Verifica che il database sia accessibile
-    if PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "\q"; then
-        echo "✅ Connessione al database riuscita"
-    else
-        echo "❌ Impossibile connettersi al database. Controlla le credenziali e i permessi."
-        exit 1
-    fi
+    echo "❌ Impossibile connettersi al database. Controlla le credenziali e i permessi."
+    exit 1
 fi
 
 # Esegui migrazioni con Knex
